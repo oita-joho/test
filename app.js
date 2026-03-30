@@ -371,7 +371,14 @@ function renderStudentGrid() {
   studentGrid.innerHTML = "";
   const totals = calcTotalsFromAttendanceCache();
 
+  let count = 0;
+
   students.forEach((student) => {
+    if (!student.name || student.name.trim() === "" || student.name.startsWith("生徒")) {
+      return;
+    }
+
+    count++;
     const absent = isAbsentInDraft(student.id);
 
     const card = document.createElement("div");
@@ -381,13 +388,11 @@ function renderStudentGrid() {
       <div class="student-id">${student.id}</div>
 
       <input
-  type="text"
-  class="name-input student-name"
-  data-id="${student.id}"
-  value="${escapeHtml(student.name || `生徒${student.id}`)}"
-/>
-
-<div class="student-id">${student.id}</div>
+        type="text"
+        class="name-input student-name"
+        data-id="${student.id}"
+        value="${escapeHtml(student.name || "")}"
+      />
 
       <button
         type="button"
@@ -402,8 +407,9 @@ function renderStudentGrid() {
 
     studentGrid.appendChild(card);
   });
-}
 
+  studentCount.textContent = `登録人数：${count}人`;
+}
 function renderSlotStates() {
   slot1State.textContent = slotLabel(currentAttendance.slot1);
   slot2State.textContent = slotLabel(currentAttendance.slot2);
