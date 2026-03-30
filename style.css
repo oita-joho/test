@@ -109,18 +109,43 @@ body {
   justify-content: center;
 }
 
-.status-grid {
+.student-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-  margin-top: 16px;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
-.status-card {
+.student-card {
+  display: grid;
+  grid-template-columns: 48px 1fr 92px 56px;
+  align-items: center;
+  gap: 10px;
   background: #f8fbff;
   border: 1px solid #dfe8f3;
   border-radius: 12px;
-  padding: 12px;
+  padding: 10px 12px;
+}
+
+.student-id {
+  font-weight: 700;
+  font-size: 18px;
+  text-align: center;
+}
+
+.student-name {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #ccd3dd;
+  border-radius: 8px;
+  font-size: 15px;
+  background: #fff;
+}
+
+.total-count {
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
 }
 
 .status-title {
