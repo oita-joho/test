@@ -10,7 +10,7 @@ body {
 }
 
 .app {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 16px;
 }
@@ -40,7 +40,7 @@ body {
   background: #fff;
   border-radius: 14px;
   padding: 16px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   margin-bottom: 16px;
 }
 
@@ -68,12 +68,14 @@ body {
   border: 1px solid #ccd3dd;
   border-radius: 10px;
   font-size: 15px;
+  background: #fff;
 }
 
 .buttons {
   flex-direction: row;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .btn {
@@ -83,6 +85,10 @@ body {
   cursor: pointer;
   color: #fff;
   font-size: 14px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn.primary {
@@ -95,6 +101,12 @@ body {
 
 .btn.danger {
   background: #d84f5f;
+}
+
+.file-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .status-grid {
@@ -132,36 +144,57 @@ body {
   font-size: 14px;
 }
 
-.table-wrap {
-  overflow-x: auto;
+.grid-header {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
+.grid-header > div {
+  display: none;
 }
 
-th,
-td {
-  padding: 10px 8px;
-  border-bottom: 1px solid #e6eaf0;
+.student-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.student-card {
+  display: grid;
+  grid-template-columns: 52px 1fr 90px 80px;
+  align-items: center;
+  gap: 10px;
+  background: #f8fbff;
+  border: 1px solid #dfe8f3;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.row-absent {
+  background: #fff5f5;
+  border-color: #f3caca;
+}
+
+.student-id {
+  font-weight: 700;
+  font-size: 16px;
   text-align: center;
 }
 
-th {
-  background: #f3f7fc;
-}
-
-td input[type="text"] {
+.student-name {
   width: 100%;
-  min-width: 140px;
+  min-width: 0;
   padding: 8px 10px;
   border: 1px solid #ccd3dd;
   border-radius: 8px;
+  font-size: 15px;
+  background: #fff;
 }
 
 .state-btn {
-  min-width: 92px;
+  min-width: 82px;
   padding: 10px 12px;
   border: none;
   border-radius: 999px;
@@ -178,16 +211,54 @@ td input[type="text"] {
   background: #dc2626;
 }
 
-.row-absent {
-  background: #fff5f5;
+.total-count {
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .status-grid {
     grid-template-columns: 1fr 1fr;
   }
 
-  .buttons {
-    flex-wrap: wrap;
+  .student-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 12px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .student-card {
+    grid-template-columns: 42px 1fr 78px 56px;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .student-id {
+    font-size: 14px;
+  }
+
+  .student-name {
+    font-size: 14px;
+    padding: 8px;
+  }
+
+  .state-btn {
+    min-width: 72px;
+    font-size: 13px;
+    padding: 9px 8px;
+  }
+
+  .total-count {
+    font-size: 14px;
   }
 }
