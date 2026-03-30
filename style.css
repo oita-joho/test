@@ -110,7 +110,7 @@ body {
   justify-content: center;
 }
 
-/* ここが重要：上部5項目を横並び */
+/* 上部5項目 */
 .status-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(160px, 1fr));
@@ -118,17 +118,13 @@ body {
   margin-top: 16px;
 }
 
-.student-card {
-  display: grid;
-  grid-template-columns: 1fr 90px 80px;
-  align-items: center;
-  gap: 10px;
+.status-card {
   background: #f8fbff;
   border: 1px solid #dfe8f3;
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 12px;
+  min-height: 96px;
 }
-
 
 .status-title {
   font-size: 13px;
@@ -162,6 +158,7 @@ body {
   display: none;
 }
 
+/* 生徒一覧 */
 .student-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -170,9 +167,9 @@ body {
 
 .student-card {
   display: grid;
-  grid-template-columns: 52px 1fr 90px 80px;
+  grid-template-columns: 1fr 110px 50px;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   background: #f8fbff;
   border: 1px solid #dfe8f3;
   border-radius: 12px;
@@ -182,6 +179,14 @@ body {
 .row-absent {
   background: #fff5f5;
   border-color: #f3caca;
+}
+
+.student-name-wrap {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
 }
 
 .student-id {
@@ -199,14 +204,10 @@ body {
   font-size: 15px;
   background: #fff;
 }
-.student-name-wrap {
-  display: grid;
-  grid-template-columns: 42px 1fr;
-  gap: 10px;
-  align-items: center;
-}
+
 .state-btn {
-  min-width: 82px;
+  width: 100%;
+  min-width: 0;
   padding: 10px 12px;
   border: none;
   border-radius: 999px;
@@ -229,6 +230,7 @@ body {
   font-size: 16px;
 }
 
+/* タブレット */
 @media (max-width: 1100px) {
   .status-grid {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
@@ -239,6 +241,7 @@ body {
   }
 }
 
+/* スマホ */
 @media (max-width: 640px) {
   .app {
     padding: 12px;
@@ -252,16 +255,21 @@ body {
   .status-grid {
     grid-template-columns: 1fr;
   }
-.student-card {
-    grid-template-columns: 42px 1fr 78px 56px;
+
+  .student-card {
+    grid-template-columns: 1fr 84px 40px;
     gap: 8px;
     padding: 10px;
+  }
+
+  .student-name-wrap {
+    grid-template-columns: 28px 1fr;
+    gap: 8px;
   }
 
   .student-id {
     font-size: 14px;
   }
-  
 
   .student-name {
     font-size: 14px;
@@ -269,7 +277,6 @@ body {
   }
 
   .state-btn {
-    min-width: 72px;
     font-size: 13px;
     padding: 9px 8px;
   }
