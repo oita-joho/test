@@ -109,6 +109,9 @@ body {
   align-items: center;
   justify-content: center;
 }
+.btn.today {
+  background: #16a34a; /* 緑 */
+}
 
 /* 上部5項目 */
 .status-grid {
