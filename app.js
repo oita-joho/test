@@ -201,7 +201,33 @@ function bindEvents() {
       alert("名前の保存に失敗しました。");
     }
   });
+  studentGrid.addEventListener("change", async (e) => {
+  const id = e.target.dataset.id;
+  if (!id) return;
+
+  const student = students.find(s => String(s.id) === String(id));
+  if (!student) return;
+
+  if (e.target.classList.contains("student-name")) {
+    student.name = e.target.value;
+  }
+
+  if (e.target.classList.contains("editable-id")) {
+    student.id = e.target.value;
+  }
+
+  try {
+    await setDoc(
+      doc(db, "classes", CLASS_ID, "students", String(student.id)),
+      student
+    );
+  } catch (err) {
+    console.error(err);
+    alert("更新に失敗しました");
+  }
+});
 }
+
 
 // =========================
 // 生徒名簿
@@ -406,7 +432,12 @@ function renderStudentGrid() {
     card.className = `student-card ${absent ? "row-absent" : ""}`;
 
     card.innerHTML = `
-      <div class="student-id-box">${student.id}</div>
+      <input
+        type="text"
+        class="student-id-box editable-id"
+        data-id="${student.id}"
+        value="${student.id}"
+      />
 
       <input
         type="text"
