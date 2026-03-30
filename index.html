@@ -33,6 +33,11 @@
           <button id="saveBtn" class="btn primary">SAVE</button>
           <button id="todayBtn" class="btn secondary">今日</button>
           <button id="initStudentsBtn" class="btn danger">名簿初期化</button>
+
+          <label class="btn secondary file-btn">
+            CSV読込
+            <input type="file" id="csvFileInput" accept=".csv,text/csv" hidden>
+          </label>
         </div>
       </div>
 
@@ -66,21 +71,16 @@
 
     <section class="panel">
       <h2>生徒一覧（40人）</h2>
-      <p class="note">右端のボタンを押すたびに、出席 / 不在 が切り替わります。最後に SAVE で保存します。</p>
+      <p class="note">不在ボタンを押すたびに、出席 / 不在 が切り替わります。最後に SAVE で保存します。名前は直接編集できます。CSV読込で一括登録もできます。</p>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>番号</th>
-              <th>名前</th>
-              <th>状態</th>
-              <th>累計不在回数</th>
-            </tr>
-          </thead>
-          <tbody id="studentTableBody"></tbody>
-        </table>
+      <div class="grid-header">
+        <div>番号</div>
+        <div>名前</div>
+        <div>状態</div>
+        <div>累計不在回数</div>
       </div>
+
+      <div id="studentGrid" class="student-grid"></div>
     </section>
   </div>
 
