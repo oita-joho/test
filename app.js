@@ -120,8 +120,8 @@ function bindEvents() {
     watchAttendance();
   });
 
-  slotSelect.addEventListener("change", () => {
-    renderStudentGrid();
+  slotSelect.addEventListener("change", async () => {
+    await renderStudentGrid();
     updateAbsentCount();
     updateSaveState("読み込み済み");
   });
@@ -258,7 +258,7 @@ async function loadStudents() {
       return String(a.displayNo || "").localeCompare(String(b.displayNo || ""));
     });
 
-  renderStudentGrid();
+  await renderStudentGrid();
 }
 
 // =========================
@@ -276,7 +276,7 @@ function watchAttendance() {
 
   unsubscribeAttendance = onSnapshot(
     attendanceRef(dateStr),
-    (snap) => {
+    async (snap) => {
       if (!snap.exists()) {
         currentAttendance = {
           slot1: [],
@@ -298,7 +298,7 @@ function watchAttendance() {
         slot3: [...currentAttendance.slot3]
       };
 
-      renderStudentGrid();
+      await renderStudentGrid();
       renderSlotStates();
       updateAbsentCount();
       updateSaveState("読み込み済み");
@@ -350,7 +350,7 @@ async function saveAttendance() {
       slot3: [...data.slot3]
     };
 
-    renderStudentGrid();
+    await renderStudentGrid();
     renderSlotStates();
     updateAbsentCount();
     updateSaveState("保存済み");
@@ -360,7 +360,7 @@ async function saveAttendance() {
   }
 }
 
-function toggleAbsent(studentId) {
+async function toggleAbsent(studentId) {
   const slot = getCurrentSlotKey();
   const current = new Set(draftAttendance[slot] || []);
 
@@ -372,7 +372,7 @@ function toggleAbsent(studentId) {
 
   draftAttendance[slot] = [...current].sort((a, b) => a - b);
 
-  renderStudentGrid();
+  await renderStudentGrid();
   updateAbsentCount();
   updateSaveState("未保存");
 }
@@ -387,11 +387,108 @@ function isAbsentInDraft(studentId) {
 }
 
 // =========================
+// 集計
+// 1日1回だけカウント
+// =========================
+function getWeekRange(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const day = d.getDay(); // 0=日,1=月,...6=土
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+
+  const start = new Date(d);
+  start.setDate(d.getDate() + diffToMonday);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  return {
+    start: formatDate(start),
+    end: formatDate(end)
+  };
+}
+
+function getMonthRange(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const start = new Date(d.getFullYear(), d.getMonth(), 1);
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+
+  return {
+    start: formatDate(start),
+    end: formatDate(end)
+  };
+}
+
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function collectDailyAbsentSet(attendanceDoc) {
+  const result = new Set();
+
+  ["slot1", "slot2", "slot3"].forEach(slot => {
+    (attendanceDoc[slot] || []).forEach(id => result.add(id));
+  });
+
+  return result;
+}
+
+async function calcSummaryCounts(baseDateStr) {
+  const dayCounts = {};
+  const weekCounts = {};
+  const monthCounts = {};
+
+  for (let i = 1; i <= STUDENT_COUNT; i++) {
+    dayCounts[i] = 0;
+    weekCounts[i] = 0;
+    monthCounts[i] = 0;
+  }
+
+  const weekRange = getWeekRange(baseDateStr);
+  const monthRange = getMonthRange(baseDateStr);
+
+  const snap = await getDocs(collection(db, "classes", CLASS_ID, "attendance"));
+
+  snap.forEach((docSnap) => {
+    const dateKey = docSnap.id;
+    const data = docSnap.data();
+    const absentSet = collectDailyAbsentSet(data);
+
+    // 日
+    if (dateKey === baseDateStr) {
+      absentSet.forEach(id => {
+        dayCounts[id] = 1;
+      });
+    }
+
+    // 週
+    if (dateKey >= weekRange.start && dateKey <= weekRange.end) {
+      absentSet.forEach(id => {
+        weekCounts[id] += 1;
+      });
+    }
+
+    // 月
+    if (dateKey >= monthRange.start && dateKey <= monthRange.end) {
+      absentSet.forEach(id => {
+        monthCounts[id] += 1;
+      });
+    }
+  });
+
+  return { dayCounts, weekCounts, monthCounts };
+}
+
+// =========================
 // 表示
 // =========================
-function renderStudentGrid() {
+async function renderStudentGrid() {
   studentGrid.innerHTML = "";
-  const totals = calcTotalsFromAttendanceCache();
+
+  const baseDateStr = dateInput.value;
+  const { dayCounts, weekCounts, monthCounts } = await calcSummaryCounts(baseDateStr);
 
   let count = 0;
 
@@ -424,7 +521,9 @@ function renderStudentGrid() {
         ${absent ? "不在" : "出席"}
       </button>
 
-      <div class="total-count">${totals[student.id] || 0}</div>
+      <div class="total-count" title="日">${dayCounts[student.id] || 0}</div>
+      <div class="total-count" title="週">${weekCounts[student.id] || 0}</div>
+      <div class="total-count" title="月">${monthCounts[student.id] || 0}</div>
     `;
 
     studentGrid.appendChild(card);
@@ -453,23 +552,6 @@ function updateAbsentCount() {
 
 function updateSaveState(text) {
   saveState.textContent = text;
-}
-
-// =========================
-// 累計
-// 現在は表示中の日付の1〜3回合計
-// =========================
-function calcTotalsFromAttendanceCache() {
-  const totals = {};
-  for (let i = 1; i <= STUDENT_COUNT; i++) totals[i] = 0;
-
-  ["slot1", "slot2", "slot3"].forEach(slot => {
-    (currentAttendance[slot] || []).forEach(id => {
-      totals[id] = (totals[id] || 0) + 1;
-    });
-  });
-
-  return totals;
 }
 
 // =========================
