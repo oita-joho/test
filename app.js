@@ -405,35 +405,35 @@ function renderStudentGrid() {
     const card = document.createElement("div");
     card.className = `student-card ${absent ? "row-absent" : ""}`;
 
-   card.innerHTML = `
-  <div class="student-name-wrap">
-    <div class="student-id">${student.id}</div>
+    card.innerHTML = `
+      <div class="student-name-wrap">
+        <div class="student-id">${student.id}</div>
 
-    <input
-      type="text"
-      class="name-input student-name"
-      data-id="${student.id}"
-      value="${escapeHtml(student.name || "")}"
-    />
-  </div>
+        <input
+          type="text"
+          class="name-input student-name"
+          data-id="${student.id}"
+          value="${escapeHtml(student.name || "")}"
+        />
+      </div>
 
-  <button
-    type="button"
-    class="state-btn ${absent ? "state-absent" : "state-present"}"
-    data-id="${student.id}"
-  >
-    ${absent ? "不在" : "出席"}
-  </button>
+      <button
+        type="button"
+        class="state-btn ${absent ? "state-absent" : "state-present"}"
+        data-id="${student.id}"
+      >
+        ${absent ? "不在" : "出席"}
+      </button>
 
-  <div class="total-count">${totals[student.id] || 0}</div>
-`;
+      <div class="total-count">${totals[student.id] || 0}</div>
+    `;
 
     studentGrid.appendChild(card);
   });
 
   if (studentCount) {
-  studentCount.textContent = `登録人数：${count}人`;
-}
+    studentCount.textContent = `登録人数：${count}人`;
+  }
 }
 
 function renderSlotStates() {
