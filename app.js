@@ -331,7 +331,18 @@ async function saveAttendance() {
       updatedAt: serverTimestamp()
     });
 
+    // ここを追加
+    currentAttendance = {
+      slot1: [...data.slot1],
+      slot2: [...data.slot2],
+      slot3: [...data.slot3]
+    };
+
+    renderStudentGrid();
+    renderSlotStates();
+    updateAbsentCount();
     updateSaveState("保存済み");
+
   } catch (err) {
     console.error(err);
     alert("保存に失敗しました。");
