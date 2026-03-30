@@ -12,13 +12,12 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  writeBatch,
   onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 // =========================
-// Firebase 設定　
+// Firebase 設定
 // =========================
 const firebaseConfig = {
   apiKey: "AIzaSyB9SFmEWpMm_COKm_a-I606hBurvPqIhE8",
@@ -61,7 +60,7 @@ const slot2State = document.getElementById("slot2State");
 const slot3State = document.getElementById("slot3State");
 
 const studentGrid = document.getElementById("studentGrid");
-const studentCount = document.getElementById("studentCount"); // 無くてもOK
+const studentCount = document.getElementById("studentCount");
 
 // =========================
 // 状態
@@ -154,17 +153,17 @@ function bindEvents() {
 
     try {
       const text = await file.text();
-      const names = parseCsvNames(text);
+      const studentsFromCsv = parseCsvStudents(text);
 
-      if (!names.length) {
+      if (!studentsFromCsv.length) {
         alert("CSVから名前を読み取れませんでした。");
         return;
       }
 
-      const ok = confirm(`${names.length}人分の名前を登録します。よろしいですか？`);
+      const ok = confirm(`${studentsFromCsv.length}人分の名前を登録します。よろしいですか？`);
       if (!ok) return;
 
-      await importStudentsFromCsv(names);
+      await importStudentsFromCsv(studentsFromCsv);
       await loadStudents();
       alert("CSVから名簿を登録しました。");
     } catch (err) {
@@ -194,40 +193,15 @@ function bindEvents() {
       });
 
       const student = students.find(s => s.id === Number(id));
-      if (student) student.name = name || `生徒${id}`;
-      renderStudentGrid();
+      if (student) {
+        student.name = name || `生徒${id}`;
+      }
     } catch (err) {
       console.error(err);
       alert("名前の保存に失敗しました。");
     }
   });
-  studentGrid.addEventListener("change", async (e) => {
-  const id = e.target.dataset.id;
-  if (!id) return;
-
-  const student = students.find(s => String(s.id) === String(id));
-  if (!student) return;
-
-  if (e.target.classList.contains("student-name")) {
-    student.name = e.target.value;
-  }
-
-  if (e.target.classList.contains("editable-id")) {
-    student.id = e.target.value;
-  }
-
-  try {
-    await setDoc(
-      doc(db, "classes", CLASS_ID, "students", String(student.id)),
-      student
-    );
-  } catch (err) {
-    console.error(err);
-    alert("更新に失敗しました");
-  }
-});
 }
-
 
 // =========================
 // 生徒名簿
@@ -236,52 +210,53 @@ async function ensureStudentsExist() {
   const snap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
   if (!snap.empty) return;
 
-  const batch = writeBatch(db);
-
   for (let i = 1; i <= STUDENT_COUNT; i++) {
     const ref = doc(db, "classes", CLASS_ID, "students", String(i));
-    batch.set(ref, {
+    await setDoc(ref, {
       id: i,
+      displayNo: String(i),
       name: `生徒${i}`
     });
   }
-
-  await batch.commit();
 }
 
 async function resetStudents() {
-  const batch = writeBatch(db);
-
   for (let i = 1; i <= STUDENT_COUNT; i++) {
     const ref = doc(db, "classes", CLASS_ID, "students", String(i));
-    batch.set(ref, {
+    await setDoc(ref, {
       id: i,
+      displayNo: String(i),
       name: `生徒${i}`
     });
   }
-
-  await batch.commit();
 }
 
-async function importStudentsFromCsv(names) {
-  const batch = writeBatch(db);
-
+async function importStudentsFromCsv(studentsFromCsv) {
   for (let i = 1; i <= STUDENT_COUNT; i++) {
     const ref = doc(db, "classes", CLASS_ID, "students", String(i));
-    batch.set(ref, {
+    const row = studentsFromCsv[i - 1];
+
+    await setDoc(ref, {
       id: i,
-      name: names[i - 1] || `生徒${i}`
+      displayNo: row?.displayNo || String(i),
+      name: row?.name || `生徒${i}`
     });
   }
-
-  await batch.commit();
 }
 
 async function loadStudents() {
   const snap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
   students = snap.docs
     .map(d => d.data())
-    .sort((a, b) => a.id - b.id);
+    .sort((a, b) => {
+      const aNo = Number(a.displayNo);
+      const bNo = Number(b.displayNo);
+
+      if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) {
+        return aNo - bNo;
+      }
+      return String(a.displayNo || "").localeCompare(String(b.displayNo || ""));
+    });
 
   renderStudentGrid();
 }
@@ -432,12 +407,7 @@ function renderStudentGrid() {
     card.className = `student-card ${absent ? "row-absent" : ""}`;
 
     card.innerHTML = `
-      <input
-        type="text"
-        class="student-id-box editable-id"
-        data-id="${student.id}"
-        value="${student.id}"
-      />
+      <div class="student-id-box">${escapeHtml(student.displayNo || String(student.id))}</div>
 
       <input
         type="text"
@@ -464,6 +434,7 @@ function renderStudentGrid() {
     studentCount.textContent = `登録人数：${count}人`;
   }
 }
+
 function renderSlotStates() {
   slot1State.textContent = slotLabel(currentAttendance.slot1);
   slot2State.textContent = slotLabel(currentAttendance.slot2);
@@ -504,33 +475,39 @@ function calcTotalsFromAttendanceCache() {
 // =========================
 // CSV
 // 1列: 山田
-// 2列: 1,山田
+// 2列: 9,山田
 // =========================
-function parseCsvNames(text) {
+function parseCsvStudents(text) {
   const lines = text
     .replace(/^\uFEFF/, "")
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(line => line !== "");
 
-  const names = [];
+  const result = [];
 
   for (const line of lines) {
     const cols = line.split(",").map(v => v.trim());
 
-    let name = cols.length === 1 ? cols[0] : cols[1] || cols[0];
+    let displayNo = "";
+    let name = "";
 
-    name = name
-      .replace(/^"+|"+$/g, "")
-      .replace(/"/g, "")
-      .trim();
+    if (cols.length >= 2) {
+      displayNo = String(cols[0] || "").replace(/"/g, "").trim();
+      name = String(cols[1] || "").replace(/"/g, "").trim();
+    } else {
+      name = String(cols[0] || "").replace(/"/g, "").trim();
+    }
 
     if (name) {
-      names.push(name);
+      result.push({
+        displayNo,
+        name
+      });
     }
   }
 
-  return names.slice(0, STUDENT_COUNT);
+  return result.slice(0, STUDENT_COUNT);
 }
 
 // =========================
