@@ -331,12 +331,9 @@ async function saveAttendance() {
       updatedAt: serverTimestamp()
     });
 
-    // ここを追加
-    currentAttendance = {
-      slot1: [...data.slot1],
-      slot2: [...data.slot2],
-      slot3: [...data.slot3]
-    };
+    // ←ここ追加
+    currentAttendance = JSON.parse(JSON.stringify(data));
+    draftAttendance = JSON.parse(JSON.stringify(data));
 
     renderStudentGrid();
     renderSlotStates();
@@ -348,7 +345,6 @@ async function saveAttendance() {
     alert("保存に失敗しました。");
   }
 }
-
 function toggleAbsent(studentId) {
   const slot = getCurrentSlotKey();
   const current = new Set(draftAttendance[slot] || []);
