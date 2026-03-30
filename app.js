@@ -12,14 +12,12 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  writeBatch,
   onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 // =========================
 // Firebase 設定
-// 自分の値に書き換える
 // =========================
 const firebaseConfig = {
   apiKey: "AIzaSyB9SFmEWpMm_COKm_a-I606hBurvPqIhE8",
@@ -62,6 +60,7 @@ const slot2State = document.getElementById("slot2State");
 const slot3State = document.getElementById("slot3State");
 
 const studentGrid = document.getElementById("studentGrid");
+const studentCount = document.getElementById("studentCount"); // 無くてもOK
 
 // =========================
 // 状態
@@ -192,6 +191,10 @@ function bindEvents() {
       await updateDoc(doc(db, "classes", CLASS_ID, "students", id), {
         name: name || `生徒${id}`
       });
+
+      const student = students.find(s => s.id === Number(id));
+      if (student) student.name = name || `生徒${id}`;
+      renderStudentGrid();
     } catch (err) {
       console.error(err);
       alert("名前の保存に失敗しました。");
@@ -206,15 +209,13 @@ async function ensureStudentsExist() {
   const snap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
   if (!snap.empty) return;
 
-  const batch = writeBatch(db);
   for (let i = 1; i <= STUDENT_COUNT; i++) {
     const ref = doc(db, "classes", CLASS_ID, "students", String(i));
-    batch.set(ref, {
+    await setDoc(ref, {
       id: i,
       name: `生徒${i}`
     });
   }
-  await batch.commit();
 }
 
 async function resetStudents() {
@@ -228,17 +229,13 @@ async function resetStudents() {
 }
 
 async function importStudentsFromCsv(names) {
-  const batch = writeBatch(db);
-
   for (let i = 1; i <= STUDENT_COUNT; i++) {
     const ref = doc(db, "classes", CLASS_ID, "students", String(i));
-    batch.set(ref, {
+    await setDoc(ref, {
       id: i,
       name: names[i - 1] || `生徒${i}`
     });
   }
-
-  await batch.commit();
 }
 
 async function loadStudents() {
@@ -252,12 +249,6 @@ async function loadStudents() {
 
 // =========================
 // 出欠
-// attendance/{yyyy-mm-dd}
-// {
-//   slot1: [1,2],
-//   slot2: [3],
-//   slot3: []
-// }
 // =========================
 function attendanceRef(dateStr) {
   return doc(db, "classes", CLASS_ID, "attendance", dateStr);
@@ -269,36 +260,40 @@ function watchAttendance() {
 
   if (unsubscribeAttendance) unsubscribeAttendance();
 
-  unsubscribeAttendance = onSnapshot(attendanceRef(dateStr), (snap) => {
-    if (!snap.exists()) {
-      currentAttendance = {
-        slot1: [],
-        slot2: [],
-        slot3: []
+  unsubscribeAttendance = onSnapshot(
+    attendanceRef(dateStr),
+    (snap) => {
+      if (!snap.exists()) {
+        currentAttendance = {
+          slot1: [],
+          slot2: [],
+          slot3: []
+        };
+      } else {
+        const data = snap.data();
+        currentAttendance = {
+          slot1: Array.isArray(data.slot1) ? data.slot1 : [],
+          slot2: Array.isArray(data.slot2) ? data.slot2 : [],
+          slot3: Array.isArray(data.slot3) ? data.slot3 : []
+        };
+      }
+
+      draftAttendance = {
+        slot1: [...currentAttendance.slot1],
+        slot2: [...currentAttendance.slot2],
+        slot3: [...currentAttendance.slot3]
       };
-    } else {
-      const data = snap.data();
-      currentAttendance = {
-        slot1: Array.isArray(data.slot1) ? data.slot1 : [],
-        slot2: Array.isArray(data.slot2) ? data.slot2 : [],
-        slot3: Array.isArray(data.slot3) ? data.slot3 : []
-      };
+
+      renderStudentGrid();
+      renderSlotStates();
+      updateAbsentCount();
+      updateSaveState("読み込み済み");
+    },
+    (err) => {
+      console.error(err);
+      alert("出欠データの読込に失敗しました。");
     }
-
-    draftAttendance = {
-      slot1: [...currentAttendance.slot1],
-      slot2: [...currentAttendance.slot2],
-      slot3: [...currentAttendance.slot3]
-    };
-
-    renderStudentGrid();
-    renderSlotStates();
-    updateAbsentCount();
-    updateSaveState("読み込み済み");
-  }, (err) => {
-    console.error(err);
-    alert("出欠データの読込に失敗しました。");
-  });
+  );
 }
 
 async function saveAttendance() {
@@ -329,20 +324,28 @@ async function saveAttendance() {
       updatedAt: serverTimestamp()
     });
 
-    // ←ここ追加
-    currentAttendance = JSON.parse(JSON.stringify(data));
-    draftAttendance = JSON.parse(JSON.stringify(data));
+    currentAttendance = {
+      slot1: [...data.slot1],
+      slot2: [...data.slot2],
+      slot3: [...data.slot3]
+    };
+
+    draftAttendance = {
+      slot1: [...data.slot1],
+      slot2: [...data.slot2],
+      slot3: [...data.slot3]
+    };
 
     renderStudentGrid();
     renderSlotStates();
     updateAbsentCount();
     updateSaveState("保存済み");
-
   } catch (err) {
     console.error(err);
     alert("保存に失敗しました。");
   }
 }
+
 function toggleAbsent(studentId) {
   const slot = getCurrentSlotKey();
   const current = new Set(draftAttendance[slot] || []);
@@ -413,8 +416,11 @@ function renderStudentGrid() {
     studentGrid.appendChild(card);
   });
 
-  studentCount.textContent = `登録人数：${count}人`;
+  if (studentCount) {
+    studentCount.textContent = `登録人数：${count}人`;
+  }
 }
+
 function renderSlotStates() {
   slot1State.textContent = slotLabel(currentAttendance.slot1);
   slot2State.textContent = slotLabel(currentAttendance.slot2);
@@ -457,13 +463,12 @@ function calcTotalsFromAttendanceCache() {
 // 1列: 山田
 // 2列: 1,山田
 // =========================
-
 function parseCsvNames(text) {
   const lines = text
     .replace(/^\uFEFF/, "")
     .split(/\r?\n/)
     .map(line => line.trim())
-    .filter(line => line);
+    .filter(line => line !== "");
 
   const names = [];
 
@@ -472,20 +477,17 @@ function parseCsvNames(text) {
 
     let name = cols.length === 1 ? cols[0] : cols[1] || cols[0];
 
-    // ← ここ強化
     name = name
-      .replace(/^"+|"+$/g, "")   // 前後の " を全部削除
-      .replace(/"/g, "")         // 中に残った " も削除
+      .replace(/^"+|"+$/g, "")
+      .replace(/"/g, "")
       .trim();
 
-    names.push(name);
+    if (name) {
+      names.push(name);
+    }
   }
 
   return names.slice(0, STUDENT_COUNT);
-}
-
-function stripQuotes(value) {
-  return String(value ?? "").replace(/^"(.*)"$/, "$1").trim();
 }
 
 // =========================
