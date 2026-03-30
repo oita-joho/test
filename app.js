@@ -408,7 +408,6 @@ function renderStudentGrid() {
     card.innerHTML = `
       <div class="student-name-wrap">
         <div class="student-id">${student.id}</div>
-
         <input
           type="text"
           class="name-input student-name"
@@ -435,7 +434,6 @@ function renderStudentGrid() {
     studentCount.textContent = `登録人数：${count}人`;
   }
 }
-
 function renderSlotStates() {
   slot1State.textContent = slotLabel(currentAttendance.slot1);
   slot2State.textContent = slotLabel(currentAttendance.slot2);
