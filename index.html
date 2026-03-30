@@ -36,7 +36,7 @@
 
           <label class="btn secondary file-btn">
             CSV読込
-            <input type="file" id="csvFileInput" accept=".csv,text/csv" hidden>
+            <input type="file" id="csvFileInput" accept=".csv,text/csv" hidden />
           </label>
         </div>
       </div>
@@ -70,15 +70,20 @@
     </section>
 
     <section class="panel">
-      <h2>生徒一覧（40人）</h2>
+      <h2>生徒一覧</h2>
       <div id="studentCount" class="student-count">登録人数：0人</div>
-      <p class="note">不在ボタンを押すたびに、出席 / 不在 が切り替わります。最後に SAVE で保存します。名前は直接編集できます。CSV読込で一括登録もできます。</p>
+      <p class="note">
+        不在ボタンを押すたびに、出席 / 不在 が切り替わります。最後に SAVE で保存します。
+        集計は「指定日」「指定日を含む週」「指定日を含む月」を表示します。
+      </p>
 
       <div class="grid-header">
         <div>番号</div>
         <div>名前</div>
         <div>状態</div>
-        <div>累計不在回数</div>
+        <div>日</div>
+        <div>週</div>
+        <div>月</div>
       </div>
 
       <div id="studentGrid" class="student-grid"></div>
