@@ -388,26 +388,51 @@ function isAbsentInDraft(studentId) {
 // =========================
 // 表示
 // =========================
-card.innerHTML = `
-  <div class="student-id-box">${student.id}</div>
+function renderStudentGrid() {
+  studentGrid.innerHTML = "";
+  const totals = calcTotalsFromAttendanceCache();
 
-  <input
-    type="text"
-    class="name-input student-name"
-    data-id="${student.id}"
-    value="${escapeHtml(student.name || "")}"
-  />
+  let count = 0;
 
-  <button
-    type="button"
-    class="state-btn ${absent ? "state-absent" : "state-present"}"
-    data-id="${student.id}"
-  >
-    ${absent ? "不在" : "出席"}
-  </button>
+  students.forEach((student) => {
+    if (!student.name || student.name.trim() === "" || student.name.startsWith("生徒")) {
+      return;
+    }
 
-  <div class="total-count">${totals[student.id] || 0}</div>
-`;
+    count++;
+    const absent = isAbsentInDraft(student.id);
+
+    const card = document.createElement("div");
+    card.className = `student-card ${absent ? "row-absent" : ""}`;
+
+    card.innerHTML = `
+      <div class="student-id-box">${student.id}</div>
+
+      <input
+        type="text"
+        class="name-input student-name"
+        data-id="${student.id}"
+        value="${escapeHtml(student.name || "")}"
+      />
+
+      <button
+        type="button"
+        class="state-btn ${absent ? "state-absent" : "state-present"}"
+        data-id="${student.id}"
+      >
+        ${absent ? "不在" : "出席"}
+      </button>
+
+      <div class="total-count">${totals[student.id] || 0}</div>
+    `;
+
+    studentGrid.appendChild(card);
+  });
+
+  if (studentCount) {
+    studentCount.textContent = `登録人数：${count}人`;
+  }
+}
 function renderSlotStates() {
   slot1State.textContent = slotLabel(currentAttendance.slot1);
   slot2State.textContent = slotLabel(currentAttendance.slot2);
