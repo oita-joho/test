@@ -452,6 +452,7 @@ function calcTotalsFromAttendanceCache() {
 // 1列: 山田
 // 2列: 1,山田
 // =========================
+
 function parseCsvNames(text) {
   const lines = text
     .replace(/^\uFEFF/, "")
@@ -464,11 +465,15 @@ function parseCsvNames(text) {
   for (const line of lines) {
     const cols = line.split(",").map(v => v.trim());
 
-    if (cols.length === 1) {
-      names.push(stripQuotes(cols[0]));
-    } else {
-      names.push(stripQuotes(cols[1] || cols[0]));
-    }
+    let name = cols.length === 1 ? cols[0] : cols[1] || cols[0];
+
+    // ← ここ強化
+    name = name
+      .replace(/^"+|"+$/g, "")   // 前後の " を全部削除
+      .replace(/"/g, "")         // 中に残った " も削除
+      .trim();
+
+    names.push(name);
   }
 
   return names.slice(0, STUDENT_COUNT);
