@@ -381,11 +381,13 @@ function renderStudentGrid() {
       <div class="student-id">${student.id}</div>
 
       <input
-        type="text"
-        class="name-input student-name"
-        data-id="${student.id}"
-        value="${escapeHtml(student.name || `生徒${student.id}`)}"
-      />
+  type="text"
+  class="name-input student-name"
+  data-id="${student.id}"
+  value="${escapeHtml(student.name || `生徒${student.id}`)}"
+/>
+
+<div class="student-id">${student.id}</div>
 
       <button
         type="button"
