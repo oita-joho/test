@@ -218,15 +218,13 @@ async function ensureStudentsExist() {
 }
 
 async function resetStudents() {
-  const batch = writeBatch(db);
   for (let i = 1; i <= STUDENT_COUNT; i++) {
     const ref = doc(db, "classes", CLASS_ID, "students", String(i));
-    batch.set(ref, {
+    await setDoc(ref, {
       id: i,
       name: `生徒${i}`
     });
   }
-  await batch.commit();
 }
 
 async function importStudentsFromCsv(names) {
