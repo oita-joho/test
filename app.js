@@ -18,7 +18,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 // =========================
-// Firebase 設定
+// Firebase 設定　
 // =========================
 const firebaseConfig = {
   apiKey: "AIzaSyB9SFmEWpMm_COKm_a-I606hBurvPqIhE8",
