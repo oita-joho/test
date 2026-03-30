@@ -12,6 +12,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  writeBatch,
   onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
@@ -209,33 +210,45 @@ async function ensureStudentsExist() {
   const snap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
   if (!snap.empty) return;
 
+  const batch = writeBatch(db);
+
   for (let i = 1; i <= STUDENT_COUNT; i++) {
     const ref = doc(db, "classes", CLASS_ID, "students", String(i));
-    await setDoc(ref, {
+    batch.set(ref, {
       id: i,
       name: `生徒${i}`
     });
   }
+
+  await batch.commit();
 }
 
 async function resetStudents() {
+  const batch = writeBatch(db);
+
   for (let i = 1; i <= STUDENT_COUNT; i++) {
     const ref = doc(db, "classes", CLASS_ID, "students", String(i));
-    await setDoc(ref, {
+    batch.set(ref, {
       id: i,
       name: `生徒${i}`
     });
   }
+
+  await batch.commit();
 }
 
 async function importStudentsFromCsv(names) {
+  const batch = writeBatch(db);
+
   for (let i = 1; i <= STUDENT_COUNT; i++) {
     const ref = doc(db, "classes", CLASS_ID, "students", String(i));
-    await setDoc(ref, {
+    batch.set(ref, {
       id: i,
       name: names[i - 1] || `生徒${i}`
     });
   }
+
+  await batch.commit();
 }
 
 async function loadStudents() {
@@ -392,26 +405,28 @@ function renderStudentGrid() {
     const card = document.createElement("div");
     card.className = `student-card ${absent ? "row-absent" : ""}`;
 
-    card.innerHTML = `
-      <div class="student-id">${student.id}</div>
+   card.innerHTML = `
+  <div class="student-name-wrap">
+    <div class="student-id">${student.id}</div>
 
-      <input
-        type="text"
-        class="name-input student-name"
-        data-id="${student.id}"
-        value="${escapeHtml(student.name || "")}"
-      />
+    <input
+      type="text"
+      class="name-input student-name"
+      data-id="${student.id}"
+      value="${escapeHtml(student.name || "")}"
+    />
+  </div>
 
-      <button
-        type="button"
-        class="state-btn ${absent ? "state-absent" : "state-present"}"
-        data-id="${student.id}"
-      >
-        ${absent ? "不在" : "出席"}
-      </button>
+  <button
+    type="button"
+    class="state-btn ${absent ? "state-absent" : "state-present"}"
+    data-id="${student.id}"
+  >
+    ${absent ? "不在" : "出席"}
+  </button>
 
-      <div class="total-count">${totals[student.id] || 0}</div>
-    `;
+  <div class="total-count">${totals[student.id] || 0}</div>
+`;
 
     studentGrid.appendChild(card);
   });
