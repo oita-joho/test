@@ -50,6 +50,9 @@ const dateInput = document.getElementById("dateInput");
 const slotSelect = document.getElementById("slotSelect");
 const saveBtn = document.getElementById("saveBtn");
 const todayBtn = document.getElementById("todayBtn");
+const prevDayBtn = document.getElementById("prevDayBtn");
+const prevWeekBtn = document.getElementById("prevWeekBtn");
+const prevMonthBtn = document.getElementById("prevMonthBtn");
 const initStudentsBtn = document.getElementById("initStudentsBtn");
 const csvFileInput = document.getElementById("csvFileInput");
 
@@ -131,6 +134,18 @@ function bindEvents() {
   todayBtn.addEventListener("click", () => {
     dateInput.value = todayStr();
     watchAttendance();
+  });
+
+  prevDayBtn?.addEventListener("click", () => {
+    moveDateByDays(-1);
+  });
+
+  prevWeekBtn?.addEventListener("click", () => {
+    moveDateByDays(-7);
+  });
+
+  prevMonthBtn?.addEventListener("click", () => {
+    moveDateByMonths(-1);
   });
 
   initStudentsBtn.addEventListener("click", async () => {
@@ -590,6 +605,35 @@ function parseCsvStudents(text) {
   }
 
   return result.slice(0, STUDENT_COUNT);
+}
+
+// =========================
+// 日付移動
+// =========================
+function moveDateByDays(diffDays) {
+  if (!dateInput.value) return;
+
+  const d = new Date(dateInput.value + "T00:00:00");
+  d.setDate(d.getDate() + diffDays);
+
+  dateInput.value = formatDate(d);
+  watchAttendance();
+}
+
+function moveDateByMonths(diffMonths) {
+  if (!dateInput.value) return;
+
+  const d = new Date(dateInput.value + "T00:00:00");
+  const originalDay = d.getDate();
+
+  d.setDate(1);
+  d.setMonth(d.getMonth() + diffMonths);
+
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(originalDay, lastDay));
+
+  dateInput.value = formatDate(d);
+  watchAttendance();
 }
 
 // =========================
