@@ -21,16 +21,15 @@ import {
 // Firebase 設定
 // 自分の値に書き換える
 // =========================
-
 const firebaseConfig = {
-  apiKey: "AIzaSyB9SFmEWpMm_COKm_a-I606hBurvPqIhE8",
-  authDomain: "test-bf28a.firebaseapp.com",
-  projectId: "test-bf28a",
-  storageBucket: "test-bf28a.firebasestorage.app",
-  messagingSenderId: "609094155946",
-  appId: "1:609094155946:web:250649b8c6adc472cfdad3",
-  measurementId: "G-GCGP3SMX23"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
+
 // =========================
 // 基本設定
 // =========================
@@ -53,6 +52,7 @@ const slotSelect = document.getElementById("slotSelect");
 const saveBtn = document.getElementById("saveBtn");
 const todayBtn = document.getElementById("todayBtn");
 const initStudentsBtn = document.getElementById("initStudentsBtn");
+const csvFileInput = document.getElementById("csvFileInput");
 
 const absentCount = document.getElementById("absentCount");
 const saveState = document.getElementById("saveState");
@@ -60,7 +60,7 @@ const slot1State = document.getElementById("slot1State");
 const slot2State = document.getElementById("slot2State");
 const slot3State = document.getElementById("slot3State");
 
-const studentTableBody = document.getElementById("studentTableBody");
+const studentGrid = document.getElementById("studentGrid");
 
 // =========================
 // 状態
@@ -103,9 +103,15 @@ async function init() {
     }
 
     authStatus.textContent = "接続済み";
-    await ensureStudentsExist();
-    await loadStudents();
-    watchAttendance();
+
+    try {
+      await ensureStudentsExist();
+      await loadStudents();
+      watchAttendance();
+    } catch (err) {
+      console.error(err);
+      alert("初期読込に失敗しました。Firestore の設定を確認してください。");
+    }
   });
 }
 
@@ -115,7 +121,7 @@ function bindEvents() {
   });
 
   slotSelect.addEventListener("change", () => {
-    renderStudentTable();
+    renderStudentGrid();
     updateAbsentCount();
     updateSaveState("読み込み済み");
   });
@@ -130,20 +136,54 @@ function bindEvents() {
   initStudentsBtn.addEventListener("click", async () => {
     const ok = confirm("名簿を 1〜40 の初期状態に戻します。よろしいですか？");
     if (!ok) return;
-    await resetStudents();
-    await loadStudents();
-    alert("名簿を初期化しました。");
+
+    try {
+      await resetStudents();
+      await loadStudents();
+      alert("名簿を初期化しました。");
+    } catch (err) {
+      console.error(err);
+      alert("名簿初期化に失敗しました。");
+    }
   });
 
-  studentTableBody.addEventListener("click", (e) => {
+  csvFileInput.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const names = parseCsvNames(text);
+
+      if (!names.length) {
+        alert("CSVから名前を読み取れませんでした。");
+        return;
+      }
+
+      const ok = confirm(`${names.length}人分の名前を登録します。よろしいですか？`);
+      if (!ok) return;
+
+      await importStudentsFromCsv(names);
+      await loadStudents();
+      alert("CSVから名簿を登録しました。");
+    } catch (err) {
+      console.error(err);
+      alert("CSVの読込に失敗しました。");
+    } finally {
+      csvFileInput.value = "";
+    }
+  });
+
+  studentGrid.addEventListener("click", (e) => {
     if (e.target.classList.contains("state-btn")) {
       const id = Number(e.target.dataset.id);
       toggleAbsent(id);
     }
   });
 
-  studentTableBody.addEventListener("input", async (e) => {
+  studentGrid.addEventListener("input", async (e) => {
     if (!e.target.classList.contains("name-input")) return;
+
     const id = e.target.dataset.id;
     const name = e.target.value.trim();
 
@@ -188,13 +228,27 @@ async function resetStudents() {
   await batch.commit();
 }
 
+async function importStudentsFromCsv(names) {
+  const batch = writeBatch(db);
+
+  for (let i = 1; i <= STUDENT_COUNT; i++) {
+    const ref = doc(db, "classes", CLASS_ID, "students", String(i));
+    batch.set(ref, {
+      id: i,
+      name: names[i - 1] || `生徒${i}`
+    });
+  }
+
+  await batch.commit();
+}
+
 async function loadStudents() {
   const snap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
   students = snap.docs
     .map(d => d.data())
     .sort((a, b) => a.id - b.id);
 
-  renderStudentTable();
+  renderStudentGrid();
 }
 
 // =========================
@@ -238,10 +292,13 @@ function watchAttendance() {
       slot3: [...currentAttendance.slot3]
     };
 
-    renderStudentTable();
+    renderStudentGrid();
     renderSlotStates();
     updateAbsentCount();
     updateSaveState("読み込み済み");
+  }, (err) => {
+    console.error(err);
+    alert("出欠データの読込に失敗しました。");
   });
 }
 
@@ -292,7 +349,7 @@ function toggleAbsent(studentId) {
 
   draftAttendance[slot] = [...current].sort((a, b) => a - b);
 
-  renderStudentTable();
+  renderStudentGrid();
   updateAbsentCount();
   updateSaveState("未保存");
 }
@@ -309,37 +366,38 @@ function isAbsentInDraft(studentId) {
 // =========================
 // 表示
 // =========================
-function renderStudentTable() {
-  studentTableBody.innerHTML = "";
+function renderStudentGrid() {
+  studentGrid.innerHTML = "";
   const totals = calcTotalsFromAttendanceCache();
 
   students.forEach((student) => {
     const absent = isAbsentInDraft(student.id);
-    const tr = document.createElement("tr");
-    if (absent) tr.classList.add("row-absent");
 
-    tr.innerHTML = `
-      <td>${student.id}</td>
-      <td>
-        <input
-          type="text"
-          class="name-input"
-          data-id="${student.id}"
-          value="${escapeHtml(student.name || `生徒${student.id}`)}"
-        />
-      </td>
-      <td>
-        <button
-          type="button"
-          class="state-btn ${absent ? "state-absent" : "state-present"}"
-          data-id="${student.id}"
-        >
-          ${absent ? "不在" : "出席"}
-        </button>
-      </td>
-      <td>${totals[student.id] || 0}</td>
+    const card = document.createElement("div");
+    card.className = `student-card ${absent ? "row-absent" : ""}`;
+
+    card.innerHTML = `
+      <div class="student-id">${student.id}</div>
+
+      <input
+        type="text"
+        class="name-input student-name"
+        data-id="${student.id}"
+        value="${escapeHtml(student.name || `生徒${student.id}`)}"
+      />
+
+      <button
+        type="button"
+        class="state-btn ${absent ? "state-absent" : "state-present"}"
+        data-id="${student.id}"
+      >
+        ${absent ? "不在" : "出席"}
+      </button>
+
+      <div class="total-count">${totals[student.id] || 0}</div>
     `;
-    studentTableBody.appendChild(tr);
+
+    studentGrid.appendChild(card);
   });
 }
 
@@ -378,6 +436,37 @@ function calcTotalsFromAttendanceCache() {
   });
 
   return totals;
+}
+
+// =========================
+// CSV
+// 1列: 山田
+// 2列: 1,山田
+// =========================
+function parseCsvNames(text) {
+  const lines = text
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line);
+
+  const names = [];
+
+  for (const line of lines) {
+    const cols = line.split(",").map(v => v.trim());
+
+    if (cols.length === 1) {
+      names.push(stripQuotes(cols[0]));
+    } else {
+      names.push(stripQuotes(cols[1] || cols[0]));
+    }
+  }
+
+  return names.slice(0, STUDENT_COUNT);
+}
+
+function stripQuotes(value) {
+  return String(value ?? "").replace(/^"(.*)"$/, "$1").trim();
 }
 
 // =========================
