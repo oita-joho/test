@@ -118,13 +118,17 @@ body {
   margin-top: 16px;
 }
 
-.status-card {
+.student-card {
+  display: grid;
+  grid-template-columns: 1fr 90px 80px;
+  align-items: center;
+  gap: 10px;
   background: #f8fbff;
   border: 1px solid #dfe8f3;
   border-radius: 12px;
-  padding: 12px;
-  min-height: 96px;
+  padding: 10px 12px;
 }
+
 
 .status-title {
   font-size: 13px;
@@ -195,7 +199,12 @@ body {
   font-size: 15px;
   background: #fff;
 }
-
+.student-name-wrap {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 10px;
+  align-items: center;
+}
 .state-btn {
   min-width: 82px;
   padding: 10px 12px;
