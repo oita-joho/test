@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>出欠チェックアプリ</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>出欠チェックアプリ</h1>
+      <div id="authStatus" class="auth-status">接続中...</div>
+    </header>
+
+    <section class="panel">
+      <div class="toolbar">
+        <div class="field">
+          <label for="dateInput">日付</label>
+          <input type="date" id="dateInput" />
+        </div>
+
+        <div class="field">
+          <label for="slotSelect">回</label>
+          <select id="slotSelect">
+            <option value="1">1回目</option>
+            <option value="2">2回目</option>
+            <option value="3">3回目</option>
+          </select>
+        </div>
+
+        <div class="field buttons">
+          <button id="saveBtn" class="btn primary">SAVE</button>
+          <button id="todayBtn" class="btn secondary">今日</button>
+          <button id="initStudentsBtn" class="btn danger">名簿初期化</button>
+        </div>
+      </div>
+
+      <div class="status-grid">
+        <div class="status-card">
+          <div class="status-title">今回の不在人数</div>
+          <div id="absentCount" class="status-value">0</div>
+        </div>
+
+        <div class="status-card">
+          <div class="status-title">保存状態</div>
+          <div id="saveState" class="status-value small">未保存</div>
+        </div>
+
+        <div class="status-card">
+          <div class="status-title">1回目</div>
+          <div id="slot1State" class="status-value small">---</div>
+        </div>
+
+        <div class="status-card">
+          <div class="status-title">2回目</div>
+          <div id="slot2State" class="status-value small">---</div>
+        </div>
+
+        <div class="status-card">
+          <div class="status-title">3回目</div>
+          <div id="slot3State" class="status-value small">---</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>生徒一覧（40人）</h2>
+      <p class="note">右端のボタンを押すたびに、出席 / 不在 が切り替わります。最後に SAVE で保存します。</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>番号</th>
+              <th>名前</th>
+              <th>状態</th>
+              <th>累計不在回数</th>
+            </tr>
+          </thead>
+          <tbody id="studentTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
