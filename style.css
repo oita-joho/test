@@ -1,6 +1,7 @@
 * {
   box-sizing: border-box;
 }
+
 body {
   margin: 0;
   font-family: sans-serif;
@@ -9,7 +10,7 @@ body {
 }
 
 .app {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 16px;
 }
@@ -153,11 +154,26 @@ body {
   font-size: 14px;
 }
 
+/* 見出し */
 .grid-header {
-  display: none;
+  display: grid;
+  grid-template-columns: 50px 1fr 90px 44px 44px 44px;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-weight: 700;
+  color: #555;
+  padding: 0 12px;
 }
 
-/* 生徒一覧 */
+.grid-header > div {
+  text-align: center;
+}
+
+.grid-header > div:nth-child(2) {
+  text-align: left;
+}
+
+/* 生徒一覧 2段組み */
 .student-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -166,7 +182,7 @@ body {
 
 .student-card {
   display: grid;
-  grid-template-columns: 50px 1fr 110px 50px;
+  grid-template-columns: 50px 1fr 90px 44px 44px 44px;
   align-items: center;
   gap: 10px;
   background: #f8fbff;
@@ -180,19 +196,6 @@ body {
   border-color: #f3caca;
 }
 
-.student-name-wrap {
-  display: grid;
-  grid-template-columns: 36px 1fr;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-}
-
-.student-id {
-  font-weight: 700;
-  font-size: 16px;
-  text-align: center;
-}
 .student-id-box {
   width: 40px;
   height: 40px;
@@ -203,7 +206,9 @@ body {
   border-radius: 8px;
   background: #eef3ff;
   border: 1px solid #ccd3dd;
+  margin: 0 auto;
 }
+
 .student-name {
   width: 100%;
   min-width: 0;
@@ -236,11 +241,11 @@ body {
 .total-count {
   text-align: center;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 /* タブレット */
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .status-grid {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
@@ -265,19 +270,23 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .grid-header {
+    grid-template-columns: 36px 1fr 70px 36px 36px 36px;
+    gap: 6px;
+    padding: 0 8px;
+    font-size: 13px;
+  }
+
   .student-card {
-    grid-template-columns: 1fr 84px 40px;
-    gap: 8px;
-    padding: 10px;
+    grid-template-columns: 36px 1fr 70px 36px 36px 36px;
+    gap: 6px;
+    padding: 8px;
   }
 
-  .student-name-wrap {
-    grid-template-columns: 28px 1fr;
-    gap: 8px;
-  }
-
-  .student-id {
-    font-size: 14px;
+  .student-id-box {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
   }
 
   .student-name {
@@ -291,6 +300,6 @@ body {
   }
 
   .total-count {
-    font-size: 14px;
+    font-size: 13px;
   }
 }
