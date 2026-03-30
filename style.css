@@ -166,9 +166,9 @@ body {
 
 .student-card {
   display: grid;
-  grid-template-columns: 1fr 110px 50px;
+  grid-template-columns: 50px 1fr 110px 50px;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   background: #f8fbff;
   border: 1px solid #dfe8f3;
   border-radius: 12px;
@@ -193,7 +193,17 @@ body {
   font-size: 16px;
   text-align: center;
 }
-
+.student-id-box {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  border-radius: 8px;
+  background: #eef3ff;
+  border: 1px solid #ccd3dd;
+}
 .student-name {
   width: 100%;
   min-width: 0;
