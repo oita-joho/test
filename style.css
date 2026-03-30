@@ -252,8 +252,7 @@ body {
   .status-grid {
     grid-template-columns: 1fr;
   }
-
-  .student-card {
+.student-card {
     grid-template-columns: 42px 1fr 78px 56px;
     gap: 8px;
     padding: 10px;
@@ -262,6 +261,7 @@ body {
   .student-id {
     font-size: 14px;
   }
+  
 
   .student-name {
     font-size: 14px;
