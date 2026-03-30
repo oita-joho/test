@@ -22,12 +22,13 @@ import {
 // 自分の値に書き換える
 // =========================
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyB9SFmEWpMm_COKm_a-I606hBurvPqIhE8",
+  authDomain: "test-bf28a.firebaseapp.com",
+  projectId: "test-bf28a",
+  storageBucket: "test-bf28a.firebasestorage.app",
+  messagingSenderId: "609094155946",
+  appId: "1:609094155946:web:250649b8c6adc472cfdad3",
+  measurementId: "G-GCGP3SMX23"
 };
 
 // =========================
