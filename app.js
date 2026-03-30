@@ -417,8 +417,8 @@ function renderStudentGrid() {
   });
 
   if (studentCount) {
-    studentCount.textContent = `登録人数：${count}人`;
-  }
+  studentCount.textContent = `登録人数：${count}人`;
+}
 }
 
 function renderSlotStates() {
