@@ -10,100 +10,111 @@
   <div class="app">
     <header class="topbar">
       <h1>出欠管理</h1>
-      <div id="authStatus" class="auth-status">接続中...</div>
+      <div id="authStatus" class="auth-status">未ログイン</div>
     </header>
 
-    <!-- 操作パネル -->
-    <section class="panel">
-      <div class="toolbar">
-        <div class="field">
-          <label for="classSelect">クラス</label>
-        <select id="classSelect">
-  <option value="class1">1年1組</option>
-  <option value="class2">1年2組</option>
-  <option value="class3">1年3組</option>
-  <option value="class4">2年1組</option>
-  <option value="class5">2年2組</option>
-  <option value="class6">2年3組</option>
-</select>
-        </div>
-        
-
-        <div class="field">
-          <label for="dateInput">日付</label>
-          <input type="date" id="dateInput" />
-        </div>
-
-        <div class="field">
-          <label for="slotSelect">時限</label>
-          <select id="slotSelect">
-            <option value="1">1限</option>
-            <option value="2">2限</option>
-            <option value="3">3限</option>
-          </select>
-        </div>
-
-        <div class="buttons">
-          <button id="saveBtn" class="btn primary">SAVE</button>
-          <button id="todayBtn" class="btn today">今日</button>
-          <button id="prevDayBtn" class="btn secondary">前日</button>
-          <button id="prevWeekBtn" class="btn secondary">前週</button>
-          <button id="prevMonthBtn" class="btn secondary">前月</button>
-          <button id="resetMonthBtn" class="btn danger">月データ初期化</button>
-          <button id="resetYearBtn" class="btn danger">年データ初期化</button>
-          <button id="initStudentsBtn" class="btn danger">名簿初期化</button>
-
-          <label class="btn secondary file-btn">
-            CSV読込
-            <input type="file" id="csvFileInput" accept=".csv" hidden />
-          </label>
-        </div>
+    <!-- ログインパネル -->
+    <section class="panel" id="loginPanel">
+      <div class="buttons">
+        <button id="loginBtn" class="btn primary">先生ログイン</button>
+        <button id="logoutBtn" class="btn secondary" style="display:none;">ログアウト</button>
       </div>
-
-      <div class="status-grid">
-        <div class="status-card">
-          <div class="status-title">現在の時限の不在人数</div>
-          <div id="absentCount" class="status-value">0</div>
-        </div>
-
-        <div class="status-card">
-          <div class="status-title">保存状態</div>
-          <div id="saveState" class="status-value small">---</div>
-        </div>
-
-        <div class="status-card">
-          <div class="status-title">1限</div>
-          <div id="slot1State" class="status-value small">---</div>
-        </div>
-
-        <div class="status-card">
-          <div class="status-title">2限</div>
-          <div id="slot2State" class="status-value small">---</div>
-        </div>
-
-        <div class="status-card">
-          <div class="status-title">3限</div>
-          <div id="slot3State" class="status-value small">---</div>
-        </div>
-      </div>
+      <p id="loginMessage" class="note">先生ログインが必要です。</p>
     </section>
 
-    <!-- 生徒一覧 -->
-    <section class="panel">
-      <div id="studentCount" class="student-count">登録人数：0人</div>
-      <p class="note">出席 / 不在 を切り替えた後、SAVEで保存します。</p>
+    <!-- ログイン後のみ表示 -->
+    <div id="appBody" style="display:none;">
+      <!-- 操作パネル -->
+      <section class="panel">
+        <div class="toolbar">
+          <div class="field">
+            <label for="classSelect">クラス</label>
+            <select id="classSelect">
+              <option value="class1">1組</option>
+              <option value="class2">2組</option>
+              <option value="class3">3組</option>
+              <option value="class4">4組</option>
+              <option value="class5">5組</option>
+              <option value="class6">6組</option>
+            </select>
+          </div>
 
-      <div class="grid-header">
-        <div>番</div>
-        <div>氏名</div>
-        <div>状態</div>
-        <div>日</div>
-        <div>週</div>
-        <div>月</div>
-      </div>
+          <div class="field">
+            <label for="dateInput">日付</label>
+            <input type="date" id="dateInput" />
+          </div>
 
-      <div id="studentGrid" class="student-grid"></div>
-    </section>
+          <div class="field">
+            <label for="slotSelect">時限</label>
+            <select id="slotSelect">
+              <option value="1">1限</option>
+              <option value="2">2限</option>
+              <option value="3">3限</option>
+            </select>
+          </div>
+
+          <div class="buttons">
+            <button id="saveBtn" class="btn primary">SAVE</button>
+            <button id="todayBtn" class="btn today">今日</button>
+            <button id="prevDayBtn" class="btn secondary">前日</button>
+            <button id="prevWeekBtn" class="btn secondary">前週</button>
+            <button id="prevMonthBtn" class="btn secondary">前月</button>
+            <button id="resetMonthBtn" class="btn danger">月データ初期化</button>
+            <button id="resetYearBtn" class="btn danger">年データ初期化</button>
+            <button id="initStudentsBtn" class="btn danger">名簿初期化</button>
+
+            <label class="btn secondary file-btn">
+              CSV読込
+              <input type="file" id="csvFileInput" accept=".csv" hidden />
+            </label>
+          </div>
+        </div>
+
+        <div class="status-grid">
+          <div class="status-card">
+            <div class="status-title">現在の時限の不在人数</div>
+            <div id="absentCount" class="status-value">0</div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-title">保存状態</div>
+            <div id="saveState" class="status-value small">---</div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-title">1限</div>
+            <div id="slot1State" class="status-value small">---</div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-title">2限</div>
+            <div id="slot2State" class="status-value small">---</div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-title">3限</div>
+            <div id="slot3State" class="status-value small">---</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 生徒一覧 -->
+      <section class="panel">
+        <div id="studentCount" class="student-count">登録人数：0人</div>
+        <p class="note">出席 / 不在 を切り替えた後、SAVEで保存します。</p>
+
+        <div class="grid-header">
+          <div>番</div>
+          <div>氏名</div>
+          <div>状態</div>
+          <div>日</div>
+          <div>週</div>
+          <div>月</div>
+        </div>
+
+        <div id="studentGrid" class="student-grid"></div>
+      </section>
+    </div>
   </div>
 
   <script type="module" src="app.js"></script>
