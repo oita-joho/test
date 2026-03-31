@@ -32,6 +32,7 @@ const firebaseConfig = {
 let CLASS_ID = "class1";
 const STUDENT_COUNT = 24;
 let currentMode = "attendance";
+let attendanceCollapsed = false;
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -47,6 +48,8 @@ const appBody = document.getElementById("appBody");
 
 const modeAttendanceBtn = document.getElementById("modeAttendanceBtn");
 const modeSettingsBtn = document.getElementById("modeSettingsBtn");
+const attendanceToggleBar = document.getElementById("attendanceToggleBar");
+const openAttendanceBtn = document.getElementById("openAttendanceBtn");
 const attendancePanel = document.getElementById("attendancePanel");
 const settingsPanel = document.getElementById("settingsPanel");
 const studentListPanel = document.getElementById("studentListPanel");
@@ -147,12 +150,19 @@ function bindEvents() {
   modeAttendanceBtn?.addEventListener("click", () => setMode("attendance"));
   modeSettingsBtn?.addEventListener("click", () => setMode("settings"));
 
+  openAttendanceBtn?.addEventListener("click", () => {
+    attendanceCollapsed = false;
+    updateAttendanceVisibility();
+  });
+
   classSelect?.addEventListener("change", async () => {
     CLASS_ID = normalizeClassKey(classSelect.value);
     if (settingsClassSelect) settingsClassSelect.value = CLASS_ID;
 
     cleanupAttendanceWatcher();
     clearAttendanceState();
+    attendanceCollapsed = false;
+    updateAttendanceVisibility();
 
     try {
       await ensureStudentsExist();
@@ -172,6 +182,8 @@ function bindEvents() {
 
   dateInput?.addEventListener("change", () => {
     if (settingsDateInput) settingsDateInput.value = dateInput.value;
+    attendanceCollapsed = false;
+    updateAttendanceVisibility();
     watchAttendance();
   });
 
@@ -190,6 +202,8 @@ function bindEvents() {
   todayBtn?.addEventListener("click", () => {
     dateInput.value = todayStr();
     if (settingsDateInput) settingsDateInput.value = dateInput.value;
+    attendanceCollapsed = false;
+    updateAttendanceVisibility();
     watchAttendance();
   });
 
@@ -274,15 +288,33 @@ function bindEvents() {
 function setMode(mode) {
   currentMode = mode;
 
-  if (attendancePanel) attendancePanel.style.display = mode === "attendance" ? "" : "none";
-  if (studentListPanel) studentListPanel.style.display = mode === "attendance" ? "" : "none";
-  if (settingsPanel) settingsPanel.style.display = mode === "settings" ? "" : "none";
+  if (settingsPanel) {
+    settingsPanel.style.display = mode === "settings" ? "" : "none";
+  }
+
+  updateAttendanceVisibility();
 
   if (modeAttendanceBtn) {
     modeAttendanceBtn.className = `btn ${mode === "attendance" ? "primary" : "secondary"}`;
   }
   if (modeSettingsBtn) {
     modeSettingsBtn.className = `btn ${mode === "settings" ? "primary" : "secondary"}`;
+  }
+}
+
+function updateAttendanceVisibility() {
+  const isAttendanceMode = currentMode === "attendance";
+
+  if (attendancePanel) {
+    attendancePanel.style.display = isAttendanceMode && !attendanceCollapsed ? "" : "none";
+  }
+
+  if (studentListPanel) {
+    studentListPanel.style.display = isAttendanceMode && !attendanceCollapsed ? "" : "none";
+  }
+
+  if (attendanceToggleBar) {
+    attendanceToggleBar.style.display = isAttendanceMode && attendanceCollapsed ? "" : "none";
   }
 }
 
@@ -482,6 +514,9 @@ async function saveAttendance() {
     renderSlotStates();
     updateAbsentCount();
     updateSaveState("保存済み");
+
+    attendanceCollapsed = true;
+    updateAttendanceVisibility();
   } catch (err) {
     console.error(err);
     alert("保存に失敗しました。");
@@ -897,6 +932,9 @@ function moveDateByDays(diffDays) {
 
   dateInput.value = formatDate(d);
   if (settingsDateInput) settingsDateInput.value = dateInput.value;
+
+  attendanceCollapsed = false;
+  updateAttendanceVisibility();
   watchAttendance();
 }
 
@@ -914,6 +952,9 @@ function moveDateByMonths(diffMonths) {
 
   dateInput.value = formatDate(d);
   if (settingsDateInput) settingsDateInput.value = dateInput.value;
+
+  attendanceCollapsed = false;
+  updateAttendanceVisibility();
   watchAttendance();
 }
 
