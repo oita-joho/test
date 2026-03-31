@@ -34,7 +34,8 @@ const firebaseConfig = {
 // 基本設定
 // =========================
 let CLASS_ID = "class1";
-const STUDENT_COUNT = 40;
+const STUDENT_COUNT = 24;
+const MAX_CLASS_COUNT = 6;
 
 // =========================
 // Firebase
@@ -92,7 +93,7 @@ init();
 
 async function init() {
   if (classSelect?.value) {
-    CLASS_ID = classSelect.value;
+    CLASS_ID = normalizeClassKey(classSelect.value);
   }
 
   dateInput.value = todayStr();
@@ -138,7 +139,7 @@ function bindEvents() {
   });
 
   classSelect?.addEventListener("change", async () => {
-    CLASS_ID = classSelect.value;
+    CLASS_ID = normalizeClassKey(classSelect.value);
 
     if (unsubscribeAttendance) {
       unsubscribeAttendance();
@@ -181,8 +182,8 @@ function bindEvents() {
   resetMonthBtn?.addEventListener("click", resetMonthData);
   resetYearBtn?.addEventListener("click", resetYearData);
 
-  initStudentsBtn.addEventListener("click", async () => {
-    const ok = confirm(`クラス「${CLASS_ID}」の名簿を 1〜40 の初期状態に戻します。よろしいですか？`);
+  initStudentsBtn?.addEventListener("click", async () => {
+    const ok = confirm(`クラス「${CLASS_ID}」の名簿を 1〜${STUDENT_COUNT} の初期状態に戻します。よろしいですか？`);
     if (!ok) return;
 
     try {
@@ -195,25 +196,35 @@ function bindEvents() {
     }
   });
 
-  csvFileInput.addEventListener("change", async (e) => {
+  csvFileInput?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
       const text = await file.text();
-      const studentsFromCsv = parseCsvStudents(text);
+      const classMap = parseMultiClassCsv(text);
 
-      if (!studentsFromCsv.length) {
-        alert("CSVから名前を読み取れませんでした。");
+      const classKeys = Object.keys(classMap).sort((a, b) => {
+        return getClassNumber(a) - getClassNumber(b);
+      });
+
+      if (!classKeys.length) {
+        alert("CSVからクラス・番号・氏名を読み取れませんでした。");
         return;
       }
 
-      const ok = confirm(`クラス「${CLASS_ID}」に ${studentsFromCsv.length}人分の名前を登録します。よろしいですか？`);
+      const ok = confirm(
+        `${classKeys.length}クラス分の名簿を一括登録します。よろしいですか？\n対象: ${classKeys.join(", ")}`
+      );
       if (!ok) return;
 
-      await importStudentsFromCsv(studentsFromCsv);
+      await importAllClassesFromCsvMap(classMap);
+
+      await ensureStudentsExist();
       await loadStudents();
-      alert("CSVから名簿を登録しました。");
+      watchAttendance();
+
+      alert("CSVから全クラス分の名簿を登録しました。");
     } catch (err) {
       console.error(err);
       alert("CSVの読込に失敗しました。");
@@ -222,14 +233,14 @@ function bindEvents() {
     }
   });
 
-  studentGrid.addEventListener("click", (e) => {
+  studentGrid?.addEventListener("click", (e) => {
     if (e.target.classList.contains("state-btn")) {
       const id = Number(e.target.dataset.id);
       toggleAbsent(id);
     }
   });
 
-  studentGrid.addEventListener("input", async (e) => {
+  studentGrid?.addEventListener("input", async (e) => {
     if (!e.target.classList.contains("name-input")) return;
 
     const id = e.target.dataset.id;
@@ -279,16 +290,20 @@ async function resetStudents() {
   }
 }
 
-async function importStudentsFromCsv(studentsFromCsv) {
-  for (let i = 1; i <= STUDENT_COUNT; i++) {
-    const ref = doc(db, "classes", CLASS_ID, "students", String(i));
-    const row = studentsFromCsv[i - 1];
+async function importAllClassesFromCsvMap(classMap) {
+  for (const classKey of Object.keys(classMap)) {
+    const rows = classMap[classKey];
 
-    await setDoc(ref, {
-      id: i,
-      displayNo: row?.displayNo || String(i),
-      name: row?.name || `生徒${i}`
-    });
+    for (let i = 1; i <= STUDENT_COUNT; i++) {
+      const ref = doc(db, "classes", classKey, "students", String(i));
+      const row = rows[i - 1];
+
+      await setDoc(ref, {
+        id: i,
+        displayNo: row?.displayNo || String(i),
+        name: row?.name || `生徒${i}`
+      });
+    }
   }
 }
 
@@ -675,40 +690,93 @@ function updateSaveState(text) {
 
 // =========================
 // CSV
-// 1列: 山田
-// 2列: 9,山田
+// 先頭: クラス,番号,氏名
+// 例: 1,1,青木 太郎
 // =========================
-function parseCsvStudents(text) {
+function parseMultiClassCsv(text) {
   const lines = text
     .replace(/^\uFEFF/, "")
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(line => line !== "");
 
+  if (!lines.length) return {};
+
+  const result = {};
+  let startIndex = 0;
+
+  const firstCols = splitCsvLine(lines[0]);
+  if (
+    String(firstCols[0] || "").includes("クラス") &&
+    String(firstCols[1] || "").includes("番号") &&
+    String(firstCols[2] || "").includes("氏名")
+  ) {
+    startIndex = 1;
+  }
+
+  for (let i = startIndex; i < lines.length; i++) {
+    const cols = splitCsvLine(lines[i]);
+    if (cols.length < 3) continue;
+
+    const classRaw = String(cols[0] ?? "").replace(/"/g, "").trim();
+    const displayNo = String(cols[1] ?? "").replace(/"/g, "").trim();
+    const name = String(cols[2] ?? "").replace(/"/g, "").trim();
+
+    if (!classRaw || !displayNo || !name) continue;
+
+    const classKey = normalizeClassKey(classRaw);
+    const classNo = getClassNumber(classKey);
+
+    if (!Number.isInteger(classNo) || classNo < 1 || classNo > MAX_CLASS_COUNT) continue;
+
+    if (!result[classKey]) result[classKey] = [];
+
+    result[classKey].push({
+      displayNo,
+      name
+    });
+  }
+
+  Object.keys(result).forEach((classKey) => {
+    result[classKey].sort((a, b) => {
+      const aNo = Number(a.displayNo);
+      const bNo = Number(b.displayNo);
+
+      if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) {
+        return aNo - bNo;
+      }
+      return String(a.displayNo).localeCompare(String(b.displayNo));
+    });
+  });
+
+  return result;
+}
+
+function splitCsvLine(line) {
   const result = [];
+  let current = "";
+  let inQuotes = false;
 
-  for (const line of lines) {
-    const cols = line.split(",").map(v => v.trim());
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
 
-    let displayNo = "";
-    let name = "";
-
-    if (cols.length >= 2) {
-      displayNo = String(cols[0] || "").replace(/"/g, "").trim();
-      name = String(cols[1] || "").replace(/"/g, "").trim();
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === "," && !inQuotes) {
+      result.push(current);
+      current = "";
     } else {
-      name = String(cols[0] || "").replace(/"/g, "").trim();
-    }
-
-    if (name) {
-      result.push({
-        displayNo,
-        name
-      });
+      current += ch;
     }
   }
 
-  return result.slice(0, STUDENT_COUNT);
+  result.push(current);
+  return result.map(v => v.trim());
 }
 
 // =========================
@@ -757,4 +825,16 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function normalizeClassKey(value) {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/(\d+)/);
+  const classNo = match ? Number(match[1]) : 1;
+  return `class${classNo}`;
+}
+
+function getClassNumber(classKey) {
+  const match = String(classKey ?? "").match(/(\d+)/);
+  return match ? Number(match[1]) : NaN;
 }
