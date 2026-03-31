@@ -120,6 +120,7 @@ const studentCount = document.getElementById("studentCount");
 const randomNominateBtn = document.getElementById("randomNominateBtn");
 const confirmNominateBtn = document.getElementById("confirmNominateBtn");
 const clearNominateBtn = document.getElementById("clearNominateBtn");
+const exportNominateCsvBtn = document.getElementById("exportNominateCsvBtn");
 
 const currentNomineeName = document.getElementById("currentNomineeName");
 const currentNomineeNo = document.getElementById("currentNomineeNo");
@@ -337,6 +338,7 @@ function bindEvents() {
   randomNominateBtn?.addEventListener("click", nominateRandomStudent);
   confirmNominateBtn?.addEventListener("click", confirmNomination);
   clearNominateBtn?.addEventListener("click", clearNomination);
+  exportNominateCsvBtn?.addEventListener("click", exportNominationCsv);
 
   nominateStudentGrid?.addEventListener("click", (e) => {
     const btn = e.target.closest(".force-nominate-btn");
@@ -1163,4 +1165,47 @@ function escapeHtml(value) {
 
 function escapeHtmlAttr(value) {
   return escapeHtml(value);
+}
+function exportNominationCsv() {
+  const dateStr = getNominationDateStr();
+  const absentIds = new Set(getAbsentIdsForNominate());
+
+  const lines = [[
+    "日付",
+    "クラス",
+    "番号",
+    "氏名",
+    "欠席",
+    "本日決定",
+    "月累計"
+  ]];
+
+  for (const s of students) {
+    const id = Number(s.id);
+    const isAbsent = absentIds.has(id) ? "欠席" : "";
+    const isConfirmed = confirmedNominationIds.has(id) ? "決定済み" : "";
+    const monthCount = monthlyNominationCounts[String(id)] || 0;
+
+    lines.push([
+      dateStr,
+      CLASS_ID,
+      s.displayNo ?? "",
+      s.name ?? "",
+      isAbsent,
+      isConfirmed,
+      monthCount
+    ]);
+  }
+
+  const csv = "\uFEFF" + lines.map((row) => row.map(csvEscape).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${CLASS_ID}_shimei_${dateStr}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
