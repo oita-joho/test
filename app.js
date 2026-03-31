@@ -19,9 +19,6 @@ import {
   deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
-// =========================
-// Firebase 設定
-// =========================
 const firebaseConfig = {
   apiKey: "AIzaSyB9SFmEWpMm_COKm_a-I606hBurvPqIhE8",
   authDomain: "test-bf28a.firebaseapp.com",
@@ -32,23 +29,15 @@ const firebaseConfig = {
   measurementId: "G-GCGP3SMX23"
 };
 
-// =========================
-// 基本設定
-// =========================
 let CLASS_ID = "class1";
 const STUDENT_COUNT = 24;
+let currentMode = "attendance";
 
-// =========================
-// Firebase
-// =========================
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// =========================
-// DOM
-// =========================
 const authStatus = document.getElementById("authStatus");
 
 const loginBtn = document.getElementById("loginBtn");
@@ -56,9 +45,18 @@ const logoutBtn = document.getElementById("logoutBtn");
 const loginMessage = document.getElementById("loginMessage");
 const appBody = document.getElementById("appBody");
 
+const modeAttendanceBtn = document.getElementById("modeAttendanceBtn");
+const modeSettingsBtn = document.getElementById("modeSettingsBtn");
+const attendancePanel = document.getElementById("attendancePanel");
+const settingsPanel = document.getElementById("settingsPanel");
+const studentListPanel = document.getElementById("studentListPanel");
+
 const classSelect = document.getElementById("classSelect");
+const settingsClassSelect = document.getElementById("settingsClassSelect");
 const dateInput = document.getElementById("dateInput");
+const settingsDateInput = document.getElementById("settingsDateInput");
 const slotSelect = document.getElementById("slotSelect");
+
 const saveBtn = document.getElementById("saveBtn");
 const todayBtn = document.getElementById("todayBtn");
 const prevDayBtn = document.getElementById("prevDayBtn");
@@ -79,9 +77,6 @@ const slot3State = document.getElementById("slot3State");
 const studentGrid = document.getElementById("studentGrid");
 const studentCount = document.getElementById("studentCount");
 
-// =========================
-// 状態
-// =========================
 let students = [];
 let currentAttendance = {
   slot1: [],
@@ -95,9 +90,6 @@ let draftAttendance = {
 };
 let unsubscribeAttendance = null;
 
-// =========================
-// 開始
-// =========================
 init();
 
 async function init() {
@@ -105,12 +97,13 @@ async function init() {
     CLASS_ID = normalizeClassKey(classSelect.value);
   }
 
-  if (dateInput) {
-    dateInput.value = todayStr();
-  }
+  if (dateInput) dateInput.value = todayStr();
+  if (settingsDateInput) settingsDateInput.value = todayStr();
+  if (settingsClassSelect) settingsClassSelect.value = CLASS_ID;
 
   bindEvents();
   showLoggedOut();
+  setMode("attendance");
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
@@ -151,18 +144,12 @@ function bindEvents() {
   loginBtn?.addEventListener("click", loginTeacher);
   logoutBtn?.addEventListener("click", logoutTeacher);
 
-  dateInput?.addEventListener("change", () => {
-    watchAttendance();
-  });
-
-  slotSelect?.addEventListener("change", async () => {
-    await renderStudentGrid();
-    updateAbsentCount();
-    updateSaveState("読み込み済み");
-  });
+  modeAttendanceBtn?.addEventListener("click", () => setMode("attendance"));
+  modeSettingsBtn?.addEventListener("click", () => setMode("settings"));
 
   classSelect?.addEventListener("change", async () => {
     CLASS_ID = normalizeClassKey(classSelect.value);
+    if (settingsClassSelect) settingsClassSelect.value = CLASS_ID;
 
     cleanupAttendanceWatcher();
     clearAttendanceState();
@@ -178,24 +165,37 @@ function bindEvents() {
     }
   });
 
+  settingsClassSelect?.addEventListener("change", () => {
+    CLASS_ID = normalizeClassKey(settingsClassSelect.value);
+    if (classSelect) classSelect.value = CLASS_ID;
+  });
+
+  dateInput?.addEventListener("change", () => {
+    if (settingsDateInput) settingsDateInput.value = dateInput.value;
+    watchAttendance();
+  });
+
+  settingsDateInput?.addEventListener("change", () => {
+    if (dateInput) dateInput.value = settingsDateInput.value;
+  });
+
+  slotSelect?.addEventListener("change", async () => {
+    await renderStudentGrid();
+    updateAbsentCount();
+    updateSaveState("読み込み済み");
+  });
+
   saveBtn?.addEventListener("click", saveAttendance);
 
   todayBtn?.addEventListener("click", () => {
     dateInput.value = todayStr();
+    if (settingsDateInput) settingsDateInput.value = dateInput.value;
     watchAttendance();
   });
 
-  prevDayBtn?.addEventListener("click", () => {
-    moveDateByDays(-1);
-  });
-
-  prevWeekBtn?.addEventListener("click", () => {
-    moveDateByDays(-7);
-  });
-
-  prevMonthBtn?.addEventListener("click", () => {
-    moveDateByMonths(-1);
-  });
+  prevDayBtn?.addEventListener("click", () => moveDateByDays(-1));
+  prevWeekBtn?.addEventListener("click", () => moveDateByDays(-7));
+  prevMonthBtn?.addEventListener("click", () => moveDateByMonths(-1));
 
   resetMonthBtn?.addEventListener("click", resetMonthData);
   resetYearBtn?.addEventListener("click", resetYearData);
@@ -228,15 +228,11 @@ function bindEvents() {
         return;
       }
 
-      const ok = confirm(
-        `クラス「${CLASS_ID}」に ${studentsFromCsv.length}人分の名簿を登録します。よろしいですか？`
-      );
+      const ok = confirm(`クラス「${CLASS_ID}」に ${studentsFromCsv.length}人分の名簿を登録します。よろしいですか？`);
       if (!ok) return;
 
       await importStudentsFromCsv(studentsFromCsv);
       await loadStudents();
-      watchAttendance();
-
       alert(`クラス「${CLASS_ID}」の名簿を登録しました。`);
     } catch (err) {
       console.error(err);
@@ -275,9 +271,21 @@ function bindEvents() {
   });
 }
 
-// =========================
-// 認証
-// =========================
+function setMode(mode) {
+  currentMode = mode;
+
+  if (attendancePanel) attendancePanel.style.display = mode === "attendance" ? "" : "none";
+  if (studentListPanel) studentListPanel.style.display = mode === "attendance" ? "" : "none";
+  if (settingsPanel) settingsPanel.style.display = mode === "settings" ? "" : "none";
+
+  if (modeAttendanceBtn) {
+    modeAttendanceBtn.className = `btn ${mode === "attendance" ? "primary" : "secondary"}`;
+  }
+  if (modeSettingsBtn) {
+    modeSettingsBtn.className = `btn ${mode === "settings" ? "primary" : "secondary"}`;
+  }
+}
+
 async function loginTeacher() {
   try {
     await signInWithPopup(auth, provider);
@@ -339,9 +347,6 @@ function clearAttendanceState() {
   if (slot3State) slot3State.textContent = "---";
 }
 
-// =========================
-// 生徒名簿
-// =========================
 async function ensureStudentsExist() {
   const snap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
   if (!snap.empty) return;
@@ -387,19 +392,13 @@ async function loadStudents() {
     .sort((a, b) => {
       const aNo = Number(a.displayNo);
       const bNo = Number(b.displayNo);
-
-      if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) {
-        return aNo - bNo;
-      }
+      if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) return aNo - bNo;
       return String(a.displayNo || "").localeCompare(String(b.displayNo || ""));
     });
 
   await renderStudentGrid();
 }
 
-// =========================
-// 出欠
-// =========================
 function attendanceRef(dateStr) {
   return doc(db, "classes", CLASS_ID, "attendance", dateStr);
 }
@@ -414,11 +413,7 @@ function watchAttendance() {
     attendanceRef(dateStr),
     async (snap) => {
       if (!snap.exists()) {
-        currentAttendance = {
-          slot1: [],
-          slot2: [],
-          slot3: []
-        };
+        currentAttendance = { slot1: [], slot2: [], slot3: [] };
       } else {
         const data = snap.data();
         currentAttendance = {
@@ -455,11 +450,7 @@ async function saveAttendance() {
     const ref = attendanceRef(dateStr);
     const snap = await getDoc(ref);
 
-    let data = {
-      slot1: [],
-      slot2: [],
-      slot3: []
-    };
+    let data = { slot1: [], slot2: [], slot3: [] };
 
     if (snap.exists()) {
       const old = snap.data();
@@ -502,7 +493,6 @@ async function toggleAbsent(studentId) {
   if (!slot) return;
 
   const current = new Set(draftAttendance[slot] || []);
-
   if (current.has(studentId)) {
     current.delete(studentId);
   } else {
@@ -527,9 +517,6 @@ function isAbsentInDraft(studentId) {
   return (draftAttendance[slot] || []).includes(studentId);
 }
 
-// =========================
-// 集計
-// =========================
 function getWeekRange(dateStr) {
   const d = new Date(dateStr + "T00:00:00");
   const day = d.getDay();
@@ -576,11 +563,9 @@ function formatDate(date) {
 
 function collectDailyAbsentSet(attendanceDoc) {
   const result = new Set();
-
   ["slot1", "slot2", "slot3"].forEach(slot => {
     (attendanceDoc[slot] || []).forEach(id => result.add(id));
   });
-
   return result;
 }
 
@@ -597,7 +582,6 @@ async function calcSummaryCounts(baseDateStr) {
 
   const weekRange = getWeekRange(baseDateStr);
   const monthRange = getMonthRange(baseDateStr);
-
   const snap = await getDocs(collection(db, "classes", CLASS_ID, "attendance"));
 
   snap.forEach((docSnap) => {
@@ -627,17 +611,14 @@ async function calcSummaryCounts(baseDateStr) {
   return { dayCounts, weekCounts, monthCounts };
 }
 
-// =========================
-// 月・年データ初期化
-// =========================
 async function resetMonthData() {
-  if (!dateInput?.value) return;
+  if (!settingsDateInput?.value) return;
 
   const ok = confirm(`クラス「${CLASS_ID}」の対象月データをすべて削除します。よろしいですか？`);
   if (!ok) return;
 
   try {
-    const { start, end } = getMonthRange(dateInput.value);
+    const { start, end } = getMonthRange(settingsDateInput.value);
     const snap = await getDocs(collection(db, "classes", CLASS_ID, "attendance"));
 
     const tasks = [];
@@ -649,10 +630,8 @@ async function resetMonthData() {
     });
 
     await Promise.all(tasks);
-
     currentAttendance = { slot1: [], slot2: [], slot3: [] };
     draftAttendance = { slot1: [], slot2: [], slot3: [] };
-
     watchAttendance();
     alert("月データを初期化しました。");
   } catch (err) {
@@ -662,13 +641,13 @@ async function resetMonthData() {
 }
 
 async function resetYearData() {
-  if (!dateInput?.value) return;
+  if (!settingsDateInput?.value) return;
 
   const ok = confirm(`クラス「${CLASS_ID}」の対象年データをすべて削除します。よろしいですか？`);
   if (!ok) return;
 
   try {
-    const { start, end } = getYearRange(dateInput.value);
+    const { start, end } = getYearRange(settingsDateInput.value);
     const snap = await getDocs(collection(db, "classes", CLASS_ID, "attendance"));
 
     const tasks = [];
@@ -680,10 +659,8 @@ async function resetYearData() {
     });
 
     await Promise.all(tasks);
-
     currentAttendance = { slot1: [], slot2: [], slot3: [] };
     draftAttendance = { slot1: [], slot2: [], slot3: [] };
-
     watchAttendance();
     alert("年データを初期化しました。");
   } catch (err) {
@@ -692,9 +669,6 @@ async function resetYearData() {
   }
 }
 
-// =========================
-// CSV書出
-// =========================
 async function exportAttendanceCsv() {
   try {
     if (!dateInput?.value) {
@@ -705,7 +679,6 @@ async function exportAttendanceCsv() {
     const dateStr = dateInput.value;
     const slotNo = slotSelect?.value || "1";
     const slotKey = getCurrentSlotKey();
-
     if (!slotKey) {
       alert("時限を選んでください。");
       return;
@@ -719,17 +692,12 @@ async function exportAttendanceCsv() {
     const sortedStudents = [...students].sort((a, b) => {
       const aNo = Number(a.displayNo);
       const bNo = Number(b.displayNo);
-
-      if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) {
-        return aNo - bNo;
-      }
+      if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) return aNo - bNo;
       return String(a.displayNo || "").localeCompare(String(b.displayNo || ""));
     });
 
     for (const student of sortedStudents) {
-      if (!student.name || student.name.trim() === "" || student.name.startsWith("生徒")) {
-        continue;
-      }
+      if (!student.name || student.name.trim() === "" || student.name.startsWith("生徒")) continue;
 
       const absent = (draftAttendance[slotKey] || []).includes(student.id);
 
@@ -748,21 +716,17 @@ async function exportAttendanceCsv() {
 
     const csvText = rows.map(row => row.map(csvEscape).join(",")).join("\r\n");
     const bom = "\uFEFF";
-    const blob = new Blob([bom + csvText], {
-      type: "text/csv;charset=utf-8;"
-    });
+    const blob = new Blob([bom + csvText], { type: "text/csv;charset=utf-8;" });
 
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     const classLabel = classSelect?.options[classSelect.selectedIndex]?.text || CLASS_ID;
-
     a.href = url;
     a.download = `${classLabel}_${dateStr}_${slotNo}限_出欠.csv`;
 
     document.body.appendChild(a);
     a.click();
     a.remove();
-
     URL.revokeObjectURL(url);
   } catch (err) {
     console.error(err);
@@ -778,14 +742,10 @@ function csvEscape(value) {
   return s;
 }
 
-// =========================
-// 表示
-// =========================
 async function renderStudentGrid() {
   if (!studentGrid) return;
 
   studentGrid.innerHTML = "";
-
   const baseDateStr = dateInput?.value;
   if (!baseDateStr) return;
 
@@ -794,9 +754,7 @@ async function renderStudentGrid() {
   let count = 0;
 
   students.forEach((student) => {
-    if (!student.name || student.name.trim() === "" || student.name.startsWith("生徒")) {
-      return;
-    }
+    if (!student.name || student.name.trim() === "" || student.name.startsWith("生徒")) return;
 
     count++;
     const absent = isAbsentInDraft(student.id);
@@ -806,14 +764,12 @@ async function renderStudentGrid() {
 
     card.innerHTML = `
       <div class="student-id-box">${escapeHtml(student.displayNo || String(student.id))}</div>
-
       <input
         type="text"
         class="name-input student-name"
         data-id="${student.id}"
         value="${escapeHtml(student.name || "")}"
       />
-
       <button
         type="button"
         class="state-btn ${absent ? "state-absent" : "state-present"}"
@@ -821,7 +777,6 @@ async function renderStudentGrid() {
       >
         ${absent ? "不在" : "出席"}
       </button>
-
       <div class="total-count" title="日">${dayCounts[student.id] || 0}</div>
       <div class="total-count" title="週">${weekCounts[student.id] || 0}</div>
       <div class="total-count" title="月">${monthCounts[student.id] || 0}</div>
@@ -856,9 +811,6 @@ function updateSaveState(text) {
   if (saveState) saveState.textContent = text;
 }
 
-// =========================
-// CSV読込
-// =========================
 function parseSingleClassCsv(text) {
   const lines = text
     .replace(/^\uFEFF/, "")
@@ -897,19 +849,13 @@ function parseSingleClassCsv(text) {
 
     if (!displayNo || !name) continue;
 
-    result.push({
-      displayNo,
-      name
-    });
+    result.push({ displayNo, name });
   }
 
   result.sort((a, b) => {
     const aNo = Number(a.displayNo);
     const bNo = Number(b.displayNo);
-
-    if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) {
-      return aNo - bNo;
-    }
+    if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) return aNo - bNo;
     return String(a.displayNo).localeCompare(String(b.displayNo));
   });
 
@@ -943,9 +889,6 @@ function splitCsvLine(line) {
   return result.map(v => v.trim());
 }
 
-// =========================
-// 日付移動
-// =========================
 function moveDateByDays(diffDays) {
   if (!dateInput?.value) return;
 
@@ -953,6 +896,7 @@ function moveDateByDays(diffDays) {
   d.setDate(d.getDate() + diffDays);
 
   dateInput.value = formatDate(d);
+  if (settingsDateInput) settingsDateInput.value = dateInput.value;
   watchAttendance();
 }
 
@@ -969,12 +913,10 @@ function moveDateByMonths(diffMonths) {
   d.setDate(Math.min(originalDay, lastDay));
 
   dateInput.value = formatDate(d);
+  if (settingsDateInput) settingsDateInput.value = dateInput.value;
   watchAttendance();
 }
 
-// =========================
-// util
-// =========================
 function todayStr() {
   const d = new Date();
   const y = d.getFullYear();
