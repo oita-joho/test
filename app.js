@@ -35,7 +35,6 @@ const firebaseConfig = {
 // =========================
 let CLASS_ID = "class1";
 const STUDENT_COUNT = 24;
-const MAX_CLASS_COUNT = 6;
 
 // =========================
 // Firebase
@@ -202,29 +201,23 @@ function bindEvents() {
 
     try {
       const text = await file.text();
-      const classMap = parseMultiClassCsv(text);
+      const studentsFromCsv = parseSingleClassCsv(text);
 
-      const classKeys = Object.keys(classMap).sort((a, b) => {
-        return getClassNumber(a) - getClassNumber(b);
-      });
-
-      if (!classKeys.length) {
-        alert("CSVからクラス・番号・氏名を読み取れませんでした。");
+      if (!studentsFromCsv.length) {
+        alert("CSVから番号・氏名を読み取れませんでした。");
         return;
       }
 
       const ok = confirm(
-        `${classKeys.length}クラス分の名簿を一括登録します。よろしいですか？\n対象: ${classKeys.join(", ")}`
+        `クラス「${CLASS_ID}」に ${studentsFromCsv.length}人分の名簿を登録します。よろしいですか？`
       );
       if (!ok) return;
 
-      await importAllClassesFromCsvMap(classMap);
-
-      await ensureStudentsExist();
+      await importStudentsFromCsv(studentsFromCsv);
       await loadStudents();
       watchAttendance();
 
-      alert("CSVから全クラス分の名簿を登録しました。");
+      alert(`クラス「${CLASS_ID}」の名簿を登録しました。`);
     } catch (err) {
       console.error(err);
       alert("CSVの読込に失敗しました。");
@@ -290,20 +283,16 @@ async function resetStudents() {
   }
 }
 
-async function importAllClassesFromCsvMap(classMap) {
-  for (const classKey of Object.keys(classMap)) {
-    const rows = classMap[classKey];
+async function importStudentsFromCsv(studentsFromCsv) {
+  for (let i = 1; i <= STUDENT_COUNT; i++) {
+    const ref = doc(db, "classes", CLASS_ID, "students", String(i));
+    const row = studentsFromCsv[i - 1];
 
-    for (let i = 1; i <= STUDENT_COUNT; i++) {
-      const ref = doc(db, "classes", classKey, "students", String(i));
-      const row = rows[i - 1];
-
-      await setDoc(ref, {
-        id: i,
-        displayNo: row?.displayNo || String(i),
-        name: row?.name || `生徒${i}`
-      });
-    }
+    await setDoc(ref, {
+      id: i,
+      displayNo: row?.displayNo || String(i),
+      name: row?.name || `生徒${i}`
+    });
   }
 }
 
@@ -690,78 +679,66 @@ function updateSaveState(text) {
 
 // =========================
 // CSV
-// 先頭: クラス,番号,氏名
-// 例: 1,1,青木 太郎
+// 1クラス分
+// 先頭: 番号,氏名
+// 例: 1,青木 太郎
+// Excelで1列になる場合にも対応
 // =========================
-function parseMultiClassCsv(text) {
+function parseSingleClassCsv(text) {
   const lines = text
     .replace(/^\uFEFF/, "")
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(line => line !== "");
 
-  if (!lines.length) return {};
+  if (!lines.length) return [];
 
-  const result = {};
+  const result = [];
   let startIndex = 0;
 
-  const firstCols = splitCsvLine(lines[0]);
+  let firstCols = splitCsvLine(lines[0]);
+  if (firstCols.length === 1 && firstCols[0].includes(",")) {
+    firstCols = firstCols[0].split(",").map(v => v.trim());
+  }
+
   if (
-    String(firstCols[0] || "").includes("クラス") &&
-    String(firstCols[1] || "").includes("番号") &&
-    String(firstCols[2] || "").includes("氏名")
+    String(firstCols[0] || "").includes("番号") &&
+    String(firstCols[1] || "").includes("氏名")
   ) {
     startIndex = 1;
   }
 
   for (let i = startIndex; i < lines.length; i++) {
-    for (let i = startIndex; i < lines.length; i++) {
-  let cols = splitCsvLine(lines[i]);
+    let cols = splitCsvLine(lines[i]);
 
-  // ★ここ追加（超重要）
-  if (cols.length === 1 && cols[0].includes(",")) {
-    cols = cols[0].split(",");
-  }
+    if (cols.length === 1 && cols[0].includes(",")) {
+      cols = cols[0].split(",").map(v => v.trim());
+    }
 
-  if (cols.length < 3) continue;
+    if (cols.length < 2) continue;
 
-  const classRaw = String(cols[0] ?? "").replace(/"/g, "").trim();
-  const displayNo = String(cols[1] ?? "").replace(/"/g, "").trim();
-  const name = String(cols[2] ?? "").replace(/"/g, "").trim();
-    if (cols.length < 3) continue;
+    const displayNo = String(cols[0] ?? "").replace(/"/g, "").trim();
+    const name = String(cols[1] ?? "").replace(/"/g, "").trim();
 
-    const classRaw = String(cols[0] ?? "").replace(/"/g, "").trim();
-    const displayNo = String(cols[1] ?? "").replace(/"/g, "").trim();
-    const name = String(cols[2] ?? "").replace(/"/g, "").trim();
+    if (!displayNo || !name) continue;
 
-    if (!classRaw || !displayNo || !name) continue;
-
-    const classKey = normalizeClassKey(classRaw);
-    const classNo = getClassNumber(classKey);
-
-    if (!Number.isInteger(classNo) || classNo < 1 || classNo > MAX_CLASS_COUNT) continue;
-
-    if (!result[classKey]) result[classKey] = [];
-
-    result[classKey].push({
+    result.push({
       displayNo,
       name
     });
   }
 
-  Object.keys(result).forEach((classKey) => {
-    result[classKey].sort((a, b) => {
-      const aNo = Number(a.displayNo);
-      const bNo = Number(b.displayNo);
+  result.sort((a, b) => {
+    const aNo = Number(a.displayNo);
+    const bNo = Number(b.displayNo);
 
-      if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) {
-        return aNo - bNo;
-      }
-      return String(a.displayNo).localeCompare(String(b.displayNo));
-    });
+    if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) {
+      return aNo - bNo;
+    }
+    return String(a.displayNo).localeCompare(String(b.displayNo));
   });
 
-  return result;
+  return result.slice(0, STUDENT_COUNT);
 }
 
 function splitCsvLine(line) {
@@ -844,9 +821,4 @@ function normalizeClassKey(value) {
   const match = raw.match(/(\d+)/);
   const classNo = match ? Number(match[1]) : 1;
   return `class${classNo}`;
-}
-
-function getClassNumber(classKey) {
-  const match = String(classKey ?? "").match(/(\d+)/);
-  return match ? Number(match[1]) : NaN;
 }
