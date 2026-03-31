@@ -77,6 +77,7 @@ const slot3State = document.getElementById("slot3State");
 
 const studentGrid = document.getElementById("studentGrid");
 const studentCount = document.getElementById("studentCount");
+const exportCsvBtn = document.getElementById("exportCsvBtn");
 
 // =========================
 // 状態
@@ -908,4 +909,86 @@ function normalizeClassKey(value) {
   const match = raw.match(/(\d+)/);
   const classNo = match ? Number(match[1]) : 1;
   return `class${classNo}`;
+}
+async function exportAttendanceCsv() {
+  try {
+    if (!dateInput?.value) {
+      alert("日付を選んでください。");
+      return;
+    }
+
+    const dateStr = dateInput.value;
+    const slotNo = slotSelect?.value || "1";
+    const slotKey = getCurrentSlotKey();
+
+    if (!slotKey) {
+      alert("時限を選んでください。");
+      return;
+    }
+
+    const { dayCounts, weekCounts, monthCounts } = await calcSummaryCounts(dateStr);
+
+    const rows = [];
+    rows.push(["クラス", "日付", "時限", "番号", "氏名", "状態", "日", "週", "月"]);
+
+    const sortedStudents = [...students].sort((a, b) => {
+      const aNo = Number(a.displayNo);
+      const bNo = Number(b.displayNo);
+
+      if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) {
+        return aNo - bNo;
+      }
+      return String(a.displayNo || "").localeCompare(String(b.displayNo || ""));
+    });
+
+    for (const student of sortedStudents) {
+      if (!student.name || student.name.trim() === "" || student.name.startsWith("生徒")) {
+        continue;
+      }
+
+      const absent = (draftAttendance[slotKey] || []).includes(student.id);
+
+      rows.push([
+        classSelect?.options[classSelect.selectedIndex]?.text || CLASS_ID,
+        dateStr,
+        `${slotNo}限`,
+        student.displayNo || String(student.id),
+        student.name || "",
+        absent ? "不在" : "出席",
+        dayCounts[student.id] || 0,
+        weekCounts[student.id] || 0,
+        monthCounts[student.id] || 0
+      ]);
+    }
+
+    const csvText = rows.map(row => row.map(csvEscape).join(",")).join("\r\n");
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + csvText], {
+      type: "text/csv;charset=utf-8;"
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const classLabel = classSelect?.options[classSelect.selectedIndex]?.text || CLASS_ID;
+
+    a.href = url;
+    a.download = `${classLabel}_${dateStr}_${slotNo}限_出欠.csv`;
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    alert("CSV書き出しに失敗しました。");
+  }
+}
+
+function csvEscape(value) {
+  const s = String(value ?? "");
+  if (s.includes('"') || s.includes(",") || s.includes("\n")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
 }
