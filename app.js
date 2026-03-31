@@ -118,6 +118,7 @@ const currentNomineeName = document.getElementById("currentNomineeName");
 const currentNomineeNo = document.getElementById("currentNomineeNo");
 const nominateState = document.getElementById("nominateState");
 const nominateStudentGrid = document.getElementById("nominateStudentGrid");
+const confirmNominateBtn = document.getElementById("confirmNominateBtn");
 
 // ====================
 // 開始
@@ -294,7 +295,7 @@ function bindEvents() {
 
   randomNominateBtn?.addEventListener("click", nominateRandomStudent);
   clearNominateBtn?.addEventListener("click", clearNomination);
-  aggregateNominateBtn?.addEventListener("click", aggregateNominationCounts);
+  confirmNominateBtn?.addEventListener("click", confirmNomination);
 
   nominateStudentGrid?.addEventListener("click", (e) => {
     const btn = e.target.closest(".force-nominate-btn");
@@ -765,9 +766,11 @@ function renderCurrentNominee() {
     return;
   }
 
+  const isConfirmed = confirmedNominationIds.has(Number(currentNomination.id));
+
   if (currentNomineeName) currentNomineeName.textContent = currentNomination.name || "---";
   if (currentNomineeNo) currentNomineeNo.textContent = currentNomination.displayNo || "---";
-  if (nominateState) nominateState.textContent = "指名中";
+  if (nominateState) nominateState.textContent = isConfirmed ? "決定済み" : "未決定";
 }
 
 function renderNominateGrid() {
@@ -778,20 +781,21 @@ function renderNominateGrid() {
   nominateStudentGrid.innerHTML = students.map((s) => {
     const monthCount = monthlyNominationCounts[String(s.id)] || 0;
     const absent = absentIds.has(Number(s.id));
+    const confirmed = confirmedNominationIds.has(Number(s.id));
 
     return `
-      <div class="student-card ${absent ? "row-absent" : ""}">
+      <div class="student-card ${absent ? "row-absent" : ""} ${confirmed ? "row-confirmed" : ""}">
         <div class="student-id-box">${escapeHtml(s.displayNo || s.id)}</div>
         <div>
           <div style="font-weight:700;">${escapeHtml(s.name || "")}</div>
           <div style="font-size:13px;color:#666;">月累計：${monthCount}回</div>
         </div>
         <button
-          class="btn ${absent ? "secondary" : "primary"} force-nominate-btn"
+          class="btn ${absent ? "secondary" : confirmed ? "today" : "primary"} force-nominate-btn"
           data-id="${s.id}"
           ${absent ? "disabled" : ""}
         >
-          ${absent ? "欠席" : "強制指名"}
+          ${absent ? "欠席" : confirmed ? "決定済み" : "強制指名"}
         </button>
       </div>
     `;
@@ -800,6 +804,8 @@ function renderNominateGrid() {
 
 function nominateRandomStudent() {
   const absentIds = new Set(getAbsentIdsForNominate());
+
+  // 欠席者だけ除外。未決定なら再度候補に入る
   const candidates = students.filter((s) => !absentIds.has(Number(s.id)));
 
   if (!candidates.length) {
@@ -810,6 +816,20 @@ function nominateRandomStudent() {
   const picked = candidates[Math.floor(Math.random() * candidates.length)];
   currentNomination = picked;
   renderCurrentNominee();
+}
+function confirmNomination() {
+  if (!currentNomination) {
+    alert("先に指名してください。");
+    return;
+  }
+
+  const id = Number(currentNomination.id);
+
+  monthlyNominationCounts[String(id)] = (monthlyNominationCounts[String(id)] || 0) + 1;
+  confirmedNominationIds.add(id);
+
+  renderCurrentNominee();
+  renderNominateGrid();
 }
 
 function forceNominateStudent(studentId) {
@@ -825,11 +845,7 @@ function clearNomination() {
   renderCurrentNominee();
 }
 
-function aggregateNominationCounts() {
-  if (!currentNomination) {
-    alert("先に指名してください。");
-    return;
-  }
+
 
   const id = String(currentNomination.id);
   monthlyNominationCounts[id] = (monthlyNominationCounts[id] || 0) + 1;
