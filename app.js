@@ -268,19 +268,7 @@ function bindEvents() {
   prevWeekBtn?.addEventListener("click", () => moveDateByDays(-7));
   prevMonthBtn?.addEventListener("click", () => moveDateByMonths(-1));
 
-  initStudentsBtn?.addEventListener("click", async () => {
-    const ok = confirm(`クラス「${CLASS_ID}」の名簿を初期化します。よろしいですか？`);
-    if (!ok) return;
-
-    try {
-      await resetStudents();
-      await loadStudents();
-      alert("名簿を初期化しました。");
-    } catch (err) {
-      console.error(err);
-      alert("名簿初期化に失敗しました。");
-    }
-  });
+ 
 
   csvFileInput?.addEventListener("change", importStudentsFromCsvFile);
 
