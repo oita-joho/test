@@ -16,7 +16,7 @@ import {
   updateDoc,
   onSnapshot,
   serverTimestamp,
-   deleteDoc
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 // ====================
@@ -41,7 +41,6 @@ const provider = new GoogleAuthProvider();
 // 基本設定
 // ====================
 let CLASS_ID = "class1";
-const STUDENT_COUNT = 24;
 let currentMode = "attendance";
 let unsubscribeAttendance = null;
 
@@ -129,9 +128,10 @@ function init() {
     CLASS_ID = normalizeClassKey(classSelect.value);
   }
 
-  if (dateInput) dateInput.value = todayStr();
-  if (settingsDateInput) settingsDateInput.value = todayStr();
-  if (nominateDateInput) nominateDateInput.value = todayStr();
+  const today = todayStr();
+  if (dateInput) dateInput.value = today;
+  if (settingsDateInput) settingsDateInput.value = today;
+  if (nominateDateInput) nominateDateInput.value = today;
 
   if (settingsClassSelect) settingsClassSelect.value = CLASS_ID;
   if (nominateClassSelect) nominateClassSelect.value = CLASS_ID;
@@ -151,7 +151,6 @@ function init() {
 
     try {
       showLoggedIn(user.email || "");
-      await ensureStudentsExist();
       await loadStudents();
       watchAttendance();
     } catch (err) {
@@ -182,7 +181,6 @@ function bindEvents() {
     clearAttendanceState();
 
     try {
-      await ensureStudentsExist();
       await loadStudents();
       watchAttendance();
       updateSaveState("クラス切替");
@@ -199,7 +197,6 @@ function bindEvents() {
     clearAttendanceState();
 
     try {
-      await ensureStudentsExist();
       await loadStudents();
       watchAttendance();
     } catch (err) {
@@ -215,7 +212,6 @@ function bindEvents() {
     clearAttendanceState();
 
     try {
-      await ensureStudentsExist();
       await loadStudents();
       watchAttendance();
       loadNominateView();
@@ -410,19 +406,6 @@ async function logoutTeacher() {
 // ====================
 // 名簿
 // ====================
-async function ensureStudentsExist() {
-  const snap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
-  if (!snap.empty) return;
-
-  for (let i = 1; i <= STUDENT_COUNT; i++) {
-    await setDoc(doc(db, "classes", CLASS_ID, "students", String(i)), {
-      id: i,
-      displayNo: String(i),
-      name: ""
-    });
-  }
-}
-
 async function importStudentsFromCsvFile(e) {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -465,6 +448,7 @@ async function importStudentsFromCsvFile(e) {
     if (csvFileInput) csvFileInput.value = "";
   }
 }
+
 async function loadStudents() {
   const snap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
 
