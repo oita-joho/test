@@ -19,6 +19,7 @@ import {
   deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
+
 const firebaseConfig = {
   apiKey: "AIzaSyB9SFmEWpMm_COKm_a-I606hBurvPqIhE8",
   authDomain: "test-bf28a.firebaseapp.com",
