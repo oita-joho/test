@@ -1,8 +1,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import {
   getAuth,
-  signInAnonymously,
-  onAuthStateChanged
+  onAuthStateChanged,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
 import {
   getFirestore,
@@ -42,11 +44,18 @@ const STUDENT_COUNT = 24;
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
 
 // =========================
 // DOM
 // =========================
 const authStatus = document.getElementById("authStatus");
+
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const loginMessage = document.getElementById("loginMessage");
+const appBody = document.getElementById("appBody");
+
 const classSelect = document.getElementById("classSelect");
 const dateInput = document.getElementById("dateInput");
 const slotSelect = document.getElementById("slotSelect");
@@ -95,43 +104,57 @@ async function init() {
     CLASS_ID = normalizeClassKey(classSelect.value);
   }
 
-  dateInput.value = todayStr();
-  bindEvents();
-
-  try {
-    await signInAnonymously(auth);
-  } catch (err) {
-    console.error(err);
-    authStatus.textContent = "認証失敗";
-    alert("Firebase の匿名認証に失敗しました。");
-    return;
+  if (dateInput) {
+    dateInput.value = todayStr();
   }
+
+  bindEvents();
+  showLoggedOut();
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
-      authStatus.textContent = "未認証";
+      cleanupAttendanceWatcher();
+      clearAttendanceState();
+      showLoggedOut();
       return;
     }
 
-    authStatus.textContent = "接続済み";
-
     try {
+      const ok = await isTeacher(user.uid);
+
+      if (!ok) {
+        alert("このGoogleアカウントには先生権限がありません。");
+        await signOut(auth);
+        cleanupAttendanceWatcher();
+        clearAttendanceState();
+        showLoggedOut();
+        return;
+      }
+
+      showLoggedIn(user.email || "");
+
       await ensureStudentsExist();
       await loadStudents();
       watchAttendance();
     } catch (err) {
       console.error(err);
-      alert("初期読込に失敗しました。Firestore の設定を確認してください。");
+      alert("初期読込に失敗しました。");
+      cleanupAttendanceWatcher();
+      clearAttendanceState();
+      showLoggedOut();
     }
   });
 }
 
 function bindEvents() {
-  dateInput.addEventListener("change", () => {
+  loginBtn?.addEventListener("click", loginTeacher);
+  logoutBtn?.addEventListener("click", logoutTeacher);
+
+  dateInput?.addEventListener("change", () => {
     watchAttendance();
   });
 
-  slotSelect.addEventListener("change", async () => {
+  slotSelect?.addEventListener("change", async () => {
     await renderStudentGrid();
     updateAbsentCount();
     updateSaveState("読み込み済み");
@@ -140,13 +163,8 @@ function bindEvents() {
   classSelect?.addEventListener("change", async () => {
     CLASS_ID = normalizeClassKey(classSelect.value);
 
-    if (unsubscribeAttendance) {
-      unsubscribeAttendance();
-      unsubscribeAttendance = null;
-    }
-
-    currentAttendance = { slot1: [], slot2: [], slot3: [] };
-    draftAttendance = { slot1: [], slot2: [], slot3: [] };
+    cleanupAttendanceWatcher();
+    clearAttendanceState();
 
     try {
       await ensureStudentsExist();
@@ -159,7 +177,7 @@ function bindEvents() {
     }
   });
 
-  saveBtn.addEventListener("click", saveAttendance);
+  saveBtn?.addEventListener("click", saveAttendance);
 
   todayBtn?.addEventListener("click", () => {
     dateInput.value = todayStr();
@@ -256,6 +274,70 @@ function bindEvents() {
 }
 
 // =========================
+// 認証
+// =========================
+async function loginTeacher() {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    console.error(err);
+    alert("ログインに失敗しました。");
+  }
+}
+
+async function logoutTeacher() {
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.error(err);
+    alert("ログアウトに失敗しました。");
+  }
+}
+
+async function isTeacher(uid) {
+  const ref = doc(db, "teachers", uid);
+  const snap = await getDoc(ref);
+  return snap.exists() && snap.data().active === true;
+}
+
+function showLoggedOut() {
+  if (appBody) appBody.style.display = "none";
+  if (loginBtn) loginBtn.style.display = "inline-flex";
+  if (logoutBtn) logoutBtn.style.display = "none";
+  if (loginMessage) loginMessage.textContent = "先生ログインが必要です。";
+  if (authStatus) authStatus.textContent = "未ログイン";
+}
+
+function showLoggedIn(email = "") {
+  if (appBody) appBody.style.display = "block";
+  if (loginBtn) loginBtn.style.display = "none";
+  if (logoutBtn) logoutBtn.style.display = "inline-flex";
+  if (loginMessage) loginMessage.textContent = email ? `ログイン中: ${email}` : "ログイン中";
+  if (authStatus) authStatus.textContent = "先生ログイン済み";
+}
+
+function cleanupAttendanceWatcher() {
+  if (unsubscribeAttendance) {
+    unsubscribeAttendance();
+    unsubscribeAttendance = null;
+  }
+}
+
+function clearAttendanceState() {
+  currentAttendance = { slot1: [], slot2: [], slot3: [] };
+  draftAttendance = { slot1: [], slot2: [], slot3: [] };
+  students = [];
+
+  if (studentGrid) studentGrid.innerHTML = "";
+  if (studentCount) studentCount.textContent = "登録人数：0人";
+  if (absentCount) absentCount.textContent = "0";
+  if (saveState) saveState.textContent = "---";
+  if (slot1State) slot1State.textContent = "---";
+  if (slot2State) slot2State.textContent = "---";
+  if (slot3State) slot3State.textContent = "---";
+}
+
+// =========================
 // 生徒名簿
 // =========================
 async function ensureStudentsExist() {
@@ -321,10 +403,10 @@ function attendanceRef(dateStr) {
 }
 
 function watchAttendance() {
-  const dateStr = dateInput.value;
+  const dateStr = dateInput?.value;
   if (!dateStr) return;
 
-  if (unsubscribeAttendance) unsubscribeAttendance();
+  cleanupAttendanceWatcher();
 
   unsubscribeAttendance = onSnapshot(
     attendanceRef(dateStr),
@@ -363,8 +445,9 @@ function watchAttendance() {
 }
 
 async function saveAttendance() {
-  const dateStr = dateInput.value;
+  const dateStr = dateInput?.value;
   const slot = getCurrentSlotKey();
+  if (!dateStr || !slot) return;
 
   try {
     const ref = attendanceRef(dateStr);
@@ -414,6 +497,8 @@ async function saveAttendance() {
 
 async function toggleAbsent(studentId) {
   const slot = getCurrentSlotKey();
+  if (!slot) return;
+
   const current = new Set(draftAttendance[slot] || []);
 
   if (current.has(studentId)) {
@@ -430,17 +515,18 @@ async function toggleAbsent(studentId) {
 }
 
 function getCurrentSlotKey() {
-  return `slot${slotSelect.value}`;
+  const value = slotSelect?.value;
+  return value ? `slot${value}` : null;
 }
 
 function isAbsentInDraft(studentId) {
   const slot = getCurrentSlotKey();
+  if (!slot) return false;
   return (draftAttendance[slot] || []).includes(studentId);
 }
 
 // =========================
 // 集計
-// 1日1回だけカウント
 // =========================
 function getWeekRange(dateStr) {
   const d = new Date(dateStr + "T00:00:00");
@@ -543,7 +629,7 @@ async function calcSummaryCounts(baseDateStr) {
 // 月・年データ初期化
 // =========================
 async function resetMonthData() {
-  if (!dateInput.value) return;
+  if (!dateInput?.value) return;
 
   const ok = confirm(`クラス「${CLASS_ID}」の対象月データをすべて削除します。よろしいですか？`);
   if (!ok) return;
@@ -574,7 +660,7 @@ async function resetMonthData() {
 }
 
 async function resetYearData() {
-  if (!dateInput.value) return;
+  if (!dateInput?.value) return;
 
   const ok = confirm(`クラス「${CLASS_ID}」の対象年データをすべて削除します。よろしいですか？`);
   if (!ok) return;
@@ -608,9 +694,13 @@ async function resetYearData() {
 // 表示
 // =========================
 async function renderStudentGrid() {
+  if (!studentGrid) return;
+
   studentGrid.innerHTML = "";
 
-  const baseDateStr = dateInput.value;
+  const baseDateStr = dateInput?.value;
+  if (!baseDateStr) return;
+
   const { dayCounts, weekCounts, monthCounts } = await calcSummaryCounts(baseDateStr);
 
   let count = 0;
@@ -658,9 +748,9 @@ async function renderStudentGrid() {
 }
 
 function renderSlotStates() {
-  slot1State.textContent = slotLabel(currentAttendance.slot1);
-  slot2State.textContent = slotLabel(currentAttendance.slot2);
-  slot3State.textContent = slotLabel(currentAttendance.slot3);
+  if (slot1State) slot1State.textContent = slotLabel(currentAttendance.slot1);
+  if (slot2State) slot2State.textContent = slotLabel(currentAttendance.slot2);
+  if (slot3State) slot3State.textContent = slotLabel(currentAttendance.slot3);
 }
 
 function slotLabel(arr) {
@@ -670,19 +760,16 @@ function slotLabel(arr) {
 
 function updateAbsentCount() {
   const slot = getCurrentSlotKey();
+  if (!slot || !absentCount) return;
   absentCount.textContent = (draftAttendance[slot] || []).length;
 }
 
 function updateSaveState(text) {
-  saveState.textContent = text;
+  if (saveState) saveState.textContent = text;
 }
 
 // =========================
 // CSV
-// 1クラス分
-// 先頭: 番号,氏名
-// 例: 1,青木 太郎
-// Excelで1列になる場合にも対応
 // =========================
 function parseSingleClassCsv(text) {
   const lines = text
@@ -772,7 +859,7 @@ function splitCsvLine(line) {
 // 日付移動
 // =========================
 function moveDateByDays(diffDays) {
-  if (!dateInput.value) return;
+  if (!dateInput?.value) return;
 
   const d = new Date(dateInput.value + "T00:00:00");
   d.setDate(d.getDate() + diffDays);
@@ -782,7 +869,7 @@ function moveDateByDays(diffDays) {
 }
 
 function moveDateByMonths(diffMonths) {
-  if (!dateInput.value) return;
+  if (!dateInput?.value) return;
 
   const d = new Date(dateInput.value + "T00:00:00");
   const originalDay = d.getDate();
