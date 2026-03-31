@@ -1,4 +1,3 @@
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import {
   getAuth,
@@ -60,9 +59,14 @@ let draftAttendance = {
   slot3: []
 };
 
+// 指名中の1人
 let currentNomination = null;
-let confirmedNominationIds = new Set();
+
+// 月累計
 let monthlyNominationCounts = {};
+
+// 当日この画面で「決定」済みの生徒
+let confirmedNominationIds = new Set();
 
 // ====================
 // DOM
@@ -113,13 +117,13 @@ const studentGrid = document.getElementById("studentGrid");
 const studentCount = document.getElementById("studentCount");
 
 const randomNominateBtn = document.getElementById("randomNominateBtn");
+const confirmNominateBtn = document.getElementById("confirmNominateBtn");
 const clearNominateBtn = document.getElementById("clearNominateBtn");
-const aggregateNominateBtn = document.getElementById("aggregateNominateBtn");
+
 const currentNomineeName = document.getElementById("currentNomineeName");
 const currentNomineeNo = document.getElementById("currentNomineeNo");
 const nominateState = document.getElementById("nominateState");
 const nominateStudentGrid = document.getElementById("nominateStudentGrid");
-const confirmNominateBtn = document.getElementById("confirmNominateBtn");
 
 // ====================
 // 開始
@@ -227,30 +231,49 @@ function bindEvents() {
   dateInput?.addEventListener("change", () => {
     if (settingsDateInput) settingsDateInput.value = dateInput.value;
     if (nominateDateInput) nominateDateInput.value = dateInput.value;
+    confirmedNominationIds.clear();
+    currentNomination = null;
     watchAttendance();
+    renderCurrentNominee();
+    renderNominateGrid();
   });
 
   settingsDateInput?.addEventListener("change", () => {
     if (dateInput) dateInput.value = settingsDateInput.value;
     if (nominateDateInput) nominateDateInput.value = settingsDateInput.value;
+    confirmedNominationIds.clear();
+    currentNomination = null;
     watchAttendance();
+    renderCurrentNominee();
+    renderNominateGrid();
   });
 
   nominateDateInput?.addEventListener("change", () => {
     if (dateInput) dateInput.value = nominateDateInput.value;
     if (settingsDateInput) settingsDateInput.value = nominateDateInput.value;
+    confirmedNominationIds.clear();
+    currentNomination = null;
     watchAttendance();
+    renderCurrentNominee();
+    renderNominateGrid();
   });
 
   slotSelect?.addEventListener("change", async () => {
     if (nominateSlotSelect) nominateSlotSelect.value = slotSelect.value;
+    confirmedNominationIds.clear();
+    currentNomination = null;
     await renderStudentGrid();
     updateAbsentCount();
     updateSaveState("読み込み済み");
+    renderCurrentNominee();
+    renderNominateGrid();
   });
 
   nominateSlotSelect?.addEventListener("change", () => {
     if (slotSelect) slotSelect.value = nominateSlotSelect.value;
+    confirmedNominationIds.clear();
+    currentNomination = null;
+    renderCurrentNominee();
     renderNominateGrid();
   });
 
@@ -261,7 +284,11 @@ function bindEvents() {
     if (dateInput) dateInput.value = t;
     if (settingsDateInput) settingsDateInput.value = t;
     if (nominateDateInput) nominateDateInput.value = t;
+    confirmedNominationIds.clear();
+    currentNomination = null;
     watchAttendance();
+    renderCurrentNominee();
+    renderNominateGrid();
   });
 
   prevDayBtn?.addEventListener("click", () => moveDateByDays(-1));
@@ -295,8 +322,8 @@ function bindEvents() {
   });
 
   randomNominateBtn?.addEventListener("click", nominateRandomStudent);
-  clearNominateBtn?.addEventListener("click", clearNomination);
   confirmNominateBtn?.addEventListener("click", confirmNomination);
+  clearNominateBtn?.addEventListener("click", clearNomination);
 
   nominateStudentGrid?.addEventListener("click", (e) => {
     const btn = e.target.closest(".force-nominate-btn");
@@ -371,6 +398,7 @@ function clearAttendanceState() {
   draftAttendance = { slot1: [], slot2: [], slot3: [] };
   students = [];
   currentNomination = null;
+  confirmedNominationIds.clear();
 
   if (studentGrid) studentGrid.innerHTML = "";
   if (nominateStudentGrid) nominateStudentGrid.innerHTML = "";
@@ -496,6 +524,12 @@ function parseSingleClassCsv(text) {
         return line.split("\t").map((v) => String(v ?? "").trim());
       }
       return line.split(",").map((v) => String(v ?? "").trim());
+    })
+    .map((row) => {
+      if (row.length === 1 && row[0].includes(",")) {
+        return row[0].split(",").map((v) => String(v ?? "").trim());
+      }
+      return row;
     });
 
   if (!rows.length) return [];
@@ -806,7 +840,6 @@ function renderNominateGrid() {
 function nominateRandomStudent() {
   const absentIds = new Set(getAbsentIdsForNominate());
 
-  // 欠席者だけ除外。未決定なら再度候補に入る
   const candidates = students.filter((s) => !absentIds.has(Number(s.id)));
 
   if (!candidates.length) {
@@ -818,6 +851,15 @@ function nominateRandomStudent() {
   currentNomination = picked;
   renderCurrentNominee();
 }
+
+function forceNominateStudent(studentId) {
+  const student = students.find((s) => Number(s.id) === Number(studentId));
+  if (!student) return;
+
+  currentNomination = student;
+  renderCurrentNominee();
+}
+
 function confirmNomination() {
   if (!currentNomination) {
     alert("先に指名してください。");
@@ -833,29 +875,9 @@ function confirmNomination() {
   renderNominateGrid();
 }
 
-function forceNominateStudent(studentId) {
-  const student = students.find((s) => Number(s.id) === Number(studentId));
-  if (!student) return;
-
-  currentNomination = student;
-  renderCurrentNominee();
-}
-
 function clearNomination() {
   currentNomination = null;
   renderCurrentNominee();
-}
-
-
-
-  const id = String(currentNomination.id);
-  monthlyNominationCounts[id] = (monthlyNominationCounts[id] || 0) + 1;
-
-  renderNominateGrid();
-  renderCurrentNominee();
-
-  if (nominateState) nominateState.textContent = "集計済み";
-  alert(`${currentNomination.name} を集計しました。`);
 }
 
 // ====================
@@ -871,7 +893,11 @@ function moveDateByDays(days) {
   if (settingsDateInput) settingsDateInput.value = v;
   if (nominateDateInput) nominateDateInput.value = v;
 
+  confirmedNominationIds.clear();
+  currentNomination = null;
   watchAttendance();
+  renderCurrentNominee();
+  renderNominateGrid();
 }
 
 function moveDateByMonths(months) {
@@ -884,7 +910,11 @@ function moveDateByMonths(months) {
   if (settingsDateInput) settingsDateInput.value = v;
   if (nominateDateInput) nominateDateInput.value = v;
 
+  confirmedNominationIds.clear();
+  currentNomination = null;
   watchAttendance();
+  renderCurrentNominee();
+  renderNominateGrid();
 }
 
 // ====================
