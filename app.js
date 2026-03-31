@@ -60,6 +60,7 @@ let draftAttendance = {
 };
 
 let currentNomination = null;
+let confirmedNominationIds = new Set();
 let monthlyNominationCounts = {};
 
 // ====================
