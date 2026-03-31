@@ -15,7 +15,8 @@ import {
   setDoc,
   updateDoc,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+   deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 // ====================
@@ -435,14 +436,22 @@ async function importStudentsFromCsvFile(e) {
       return;
     }
 
-    const ok = confirm(`クラス「${CLASS_ID}」に ${studentsFromCsv.length}人分の名簿を登録します。よろしいですか？`);
+    const ok = confirm(`クラス「${CLASS_ID}」の名簿を登録します。既存名簿は置き換えられます。よろしいですか？`);
     if (!ok) return;
 
-    for (let i = 1; i <= STUDENT_COUNT; i++) {
-      const row = studentsFromCsv[i - 1];
-      await setDoc(doc(db, "classes", CLASS_ID, "students", String(i)), {
-        id: i,
-        displayNo: row?.displayNo || String(i),
+    // 既存名簿をすべて削除
+    const oldSnap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
+    for (const d of oldSnap.docs) {
+      await deleteDoc(doc(db, "classes", CLASS_ID, "students", d.id));
+    }
+
+    // CSVの内容だけ登録
+    for (let i = 0; i < studentsFromCsv.length; i++) {
+      const row = studentsFromCsv[i];
+
+      await setDoc(doc(db, "classes", CLASS_ID, "students", String(i + 1)), {
+        id: i + 1,
+        displayNo: row?.displayNo || String(i + 1),
         name: row?.name || ""
       });
     }
@@ -456,12 +465,17 @@ async function importStudentsFromCsvFile(e) {
     if (csvFileInput) csvFileInput.value = "";
   }
 }
-
 async function loadStudents() {
   const snap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
+
   students = snap.docs
     .map((d) => d.data())
-    .filter((s) => s.name && s.name.trim() !== "")
+    .filter((s) => {
+      const name = String(s.name || "").trim();
+      if (!name) return false;
+      if (/^生徒\d+$/.test(name)) return false;
+      return true;
+    })
     .sort((a, b) => {
       const aNo = Number(a.displayNo);
       const bNo = Number(b.displayNo);
