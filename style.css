@@ -44,6 +44,11 @@ body {
   margin-bottom: 16px;
 }
 
+.section-title {
+  margin: 0 0 8px 0;
+  font-size: 22px;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -79,6 +84,12 @@ body {
   flex-wrap: wrap;
 }
 
+.mode-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .btn {
   padding: 10px 14px;
   border: none;
@@ -104,16 +115,16 @@ body {
   background: #d84f5f;
 }
 
+.btn.today {
+  background: #16a34a;
+}
+
 .file-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-.btn.today {
-  background: #16a34a; /* 緑 */
-}
 
-/* 上部5項目 */
 .status-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(160px, 1fr));
@@ -157,7 +168,6 @@ body {
   font-size: 14px;
 }
 
-/* 見出し */
 .grid-header {
   display: grid;
   grid-template-columns: 50px 1fr 90px 44px 44px 44px;
@@ -176,7 +186,6 @@ body {
   text-align: left;
 }
 
-/* 生徒一覧 2段組み */
 .student-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -247,7 +256,6 @@ body {
   font-size: 15px;
 }
 
-/* タブレット */
 @media (max-width: 1200px) {
   .status-grid {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
@@ -258,7 +266,6 @@ body {
   }
 }
 
-/* スマホ */
 @media (max-width: 640px) {
   .app {
     padding: 12px;
