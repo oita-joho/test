@@ -98,7 +98,6 @@ const prevDayBtn = document.getElementById("prevDayBtn");
 const prevWeekBtn = document.getElementById("prevWeekBtn");
 const prevMonthBtn = document.getElementById("prevMonthBtn");
 
-const initStudentsBtn = document.getElementById("initStudentsBtn");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
 const csvFileInput = document.getElementById("csvFileInput");
 
@@ -135,6 +134,7 @@ function init() {
 
   if (settingsClassSelect) settingsClassSelect.value = CLASS_ID;
   if (nominateClassSelect) nominateClassSelect.value = CLASS_ID;
+  if (nominateSlotSelect && slotSelect) nominateSlotSelect.value = slotSelect.value;
 
   bindEvents();
   showLoggedOut();
@@ -268,16 +268,12 @@ function bindEvents() {
   prevWeekBtn?.addEventListener("click", () => moveDateByDays(-7));
   prevMonthBtn?.addEventListener("click", () => moveDateByMonths(-1));
 
- 
-
   csvFileInput?.addEventListener("change", importStudentsFromCsvFile);
-
   exportCsvBtn?.addEventListener("click", exportStudentsCsv);
 
   studentGrid?.addEventListener("click", (e) => {
     const btn = e.target.closest(".state-btn");
     if (!btn) return;
-
     const id = Number(btn.dataset.id);
     toggleAbsent(id);
   });
@@ -291,14 +287,9 @@ function bindEvents() {
 
     try {
       await updateDoc(doc(db, "classes", CLASS_ID, "students", id), {
-        name: name || `生徒${id}`
+        name
       });
-
-      const target = students.find((s) => String(s.id) === id);
-      if (target) {
-        target.name = name || `生徒${id}`;
-      }
-      renderNominateGrid();
+      await loadStudents();
     } catch (err) {
       console.error(err);
       alert("名前の保存に失敗しました。");
@@ -312,7 +303,6 @@ function bindEvents() {
   nominateStudentGrid?.addEventListener("click", (e) => {
     const btn = e.target.closest(".force-nominate-btn");
     if (!btn) return;
-
     const id = Number(btn.dataset.id);
     if (btn.disabled) return;
     forceNominateStudent(id);
@@ -427,17 +417,7 @@ async function ensureStudentsExist() {
     await setDoc(doc(db, "classes", CLASS_ID, "students", String(i)), {
       id: i,
       displayNo: String(i),
-      name: `生徒${i}`
-    });
-  }
-}
-
-async function resetStudents() {
-  for (let i = 1; i <= STUDENT_COUNT; i++) {
-    await setDoc(doc(db, "classes", CLASS_ID, "students", String(i)), {
-      id: i,
-      displayNo: String(i),
-      name: `生徒${i}`
+      name: ""
     });
   }
 }
@@ -463,7 +443,7 @@ async function importStudentsFromCsvFile(e) {
       await setDoc(doc(db, "classes", CLASS_ID, "students", String(i)), {
         id: i,
         displayNo: row?.displayNo || String(i),
-        name: row?.name || `生徒${i}`
+        name: row?.name || ""
       });
     }
 
@@ -481,6 +461,7 @@ async function loadStudents() {
   const snap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
   students = snap.docs
     .map((d) => d.data())
+    .filter((s) => s.name && s.name.trim() !== "")
     .sort((a, b) => {
       const aNo = Number(a.displayNo);
       const bNo = Number(b.displayNo);
@@ -524,7 +505,7 @@ function parseSingleClassCsv(text) {
 
       return {
         displayNo: displayNo || String(idx + 1),
-        name: name || `生徒${idx + 1}`
+        name: name || ""
       };
     })
     .filter((row) => row.displayNo || row.name);
