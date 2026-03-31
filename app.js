@@ -13,7 +13,8 @@ import {
   setDoc,
   updateDoc,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 // =========================
@@ -32,7 +33,7 @@ const firebaseConfig = {
 // =========================
 // 基本設定
 // =========================
-const CLASS_ID = "class1";
+let CLASS_ID = "class1";
 const STUDENT_COUNT = 40;
 
 // =========================
@@ -46,6 +47,7 @@ const db = getFirestore(app);
 // DOM
 // =========================
 const authStatus = document.getElementById("authStatus");
+const classSelect = document.getElementById("classSelect");
 const dateInput = document.getElementById("dateInput");
 const slotSelect = document.getElementById("slotSelect");
 const saveBtn = document.getElementById("saveBtn");
@@ -53,6 +55,8 @@ const todayBtn = document.getElementById("todayBtn");
 const prevDayBtn = document.getElementById("prevDayBtn");
 const prevWeekBtn = document.getElementById("prevWeekBtn");
 const prevMonthBtn = document.getElementById("prevMonthBtn");
+const resetMonthBtn = document.getElementById("resetMonthBtn");
+const resetYearBtn = document.getElementById("resetYearBtn");
 const initStudentsBtn = document.getElementById("initStudentsBtn");
 const csvFileInput = document.getElementById("csvFileInput");
 
@@ -87,6 +91,10 @@ let unsubscribeAttendance = null;
 init();
 
 async function init() {
+  if (classSelect?.value) {
+    CLASS_ID = classSelect.value;
+  }
+
   dateInput.value = todayStr();
   bindEvents();
 
@@ -129,9 +137,31 @@ function bindEvents() {
     updateSaveState("読み込み済み");
   });
 
+  classSelect?.addEventListener("change", async () => {
+    CLASS_ID = classSelect.value;
+
+    if (unsubscribeAttendance) {
+      unsubscribeAttendance();
+      unsubscribeAttendance = null;
+    }
+
+    currentAttendance = { slot1: [], slot2: [], slot3: [] };
+    draftAttendance = { slot1: [], slot2: [], slot3: [] };
+
+    try {
+      await ensureStudentsExist();
+      await loadStudents();
+      watchAttendance();
+      updateSaveState("クラス切替");
+    } catch (err) {
+      console.error(err);
+      alert("クラス切替に失敗しました。");
+    }
+  });
+
   saveBtn.addEventListener("click", saveAttendance);
 
-  todayBtn.addEventListener("click", () => {
+  todayBtn?.addEventListener("click", () => {
     dateInput.value = todayStr();
     watchAttendance();
   });
@@ -148,8 +178,11 @@ function bindEvents() {
     moveDateByMonths(-1);
   });
 
+  resetMonthBtn?.addEventListener("click", resetMonthData);
+  resetYearBtn?.addEventListener("click", resetYearData);
+
   initStudentsBtn.addEventListener("click", async () => {
-    const ok = confirm("名簿を 1〜40 の初期状態に戻します。よろしいですか？");
+    const ok = confirm(`クラス「${CLASS_ID}」の名簿を 1〜40 の初期状態に戻します。よろしいですか？`);
     if (!ok) return;
 
     try {
@@ -175,7 +208,7 @@ function bindEvents() {
         return;
       }
 
-      const ok = confirm(`${studentsFromCsv.length}人分の名前を登録します。よろしいですか？`);
+      const ok = confirm(`クラス「${CLASS_ID}」に ${studentsFromCsv.length}人分の名前を登録します。よろしいですか？`);
       if (!ok) return;
 
       await importStudentsFromCsv(studentsFromCsv);
@@ -407,7 +440,7 @@ function isAbsentInDraft(studentId) {
 // =========================
 function getWeekRange(dateStr) {
   const d = new Date(dateStr + "T00:00:00");
-  const day = d.getDay(); // 0=日,1=月,...6=土
+  const day = d.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
 
   const start = new Date(d);
@@ -430,6 +463,15 @@ function getMonthRange(dateStr) {
   return {
     start: formatDate(start),
     end: formatDate(end)
+  };
+}
+
+function getYearRange(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const year = d.getFullYear();
+  return {
+    start: `${year}-01-01`,
+    end: `${year}-12-31`
   };
 }
 
@@ -471,21 +513,18 @@ async function calcSummaryCounts(baseDateStr) {
     const data = docSnap.data();
     const absentSet = collectDailyAbsentSet(data);
 
-    // 日
     if (dateKey === baseDateStr) {
       absentSet.forEach(id => {
         dayCounts[id] = 1;
       });
     }
 
-    // 週
     if (dateKey >= weekRange.start && dateKey <= weekRange.end) {
       absentSet.forEach(id => {
         weekCounts[id] += 1;
       });
     }
 
-    // 月
     if (dateKey >= monthRange.start && dateKey <= monthRange.end) {
       absentSet.forEach(id => {
         monthCounts[id] += 1;
@@ -494,6 +533,71 @@ async function calcSummaryCounts(baseDateStr) {
   });
 
   return { dayCounts, weekCounts, monthCounts };
+}
+
+// =========================
+// 月・年データ初期化
+// =========================
+async function resetMonthData() {
+  if (!dateInput.value) return;
+
+  const ok = confirm(`クラス「${CLASS_ID}」の対象月データをすべて削除します。よろしいですか？`);
+  if (!ok) return;
+
+  try {
+    const { start, end } = getMonthRange(dateInput.value);
+    const snap = await getDocs(collection(db, "classes", CLASS_ID, "attendance"));
+
+    const tasks = [];
+    snap.forEach((docSnap) => {
+      const dateKey = docSnap.id;
+      if (dateKey >= start && dateKey <= end) {
+        tasks.push(deleteDoc(docSnap.ref));
+      }
+    });
+
+    await Promise.all(tasks);
+
+    currentAttendance = { slot1: [], slot2: [], slot3: [] };
+    draftAttendance = { slot1: [], slot2: [], slot3: [] };
+
+    watchAttendance();
+    alert("月データを初期化しました。");
+  } catch (err) {
+    console.error(err);
+    alert("月データ初期化に失敗しました。");
+  }
+}
+
+async function resetYearData() {
+  if (!dateInput.value) return;
+
+  const ok = confirm(`クラス「${CLASS_ID}」の対象年データをすべて削除します。よろしいですか？`);
+  if (!ok) return;
+
+  try {
+    const { start, end } = getYearRange(dateInput.value);
+    const snap = await getDocs(collection(db, "classes", CLASS_ID, "attendance"));
+
+    const tasks = [];
+    snap.forEach((docSnap) => {
+      const dateKey = docSnap.id;
+      if (dateKey >= start && dateKey <= end) {
+        tasks.push(deleteDoc(docSnap.ref));
+      }
+    });
+
+    await Promise.all(tasks);
+
+    currentAttendance = { slot1: [], slot2: [], slot3: [] };
+    draftAttendance = { slot1: [], slot2: [], slot3: [] };
+
+    watchAttendance();
+    alert("年データを初期化しました。");
+  } catch (err) {
+    console.error(err);
+    alert("年データ初期化に失敗しました。");
+  }
 }
 
 // =========================
