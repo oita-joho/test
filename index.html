@@ -3,87 +3,95 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>出欠チェック</title>
+  <title>出欠管理</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header class="topbar">
-      <h1>出欠チェックアプリ</h1>
+      <h1>出欠管理</h1>
       <div id="authStatus" class="auth-status">接続中...</div>
     </header>
 
+    <!-- 操作パネル -->
     <section class="panel">
       <div class="toolbar">
+        <div class="field">
+          <label for="classSelect">クラス</label>
+          <select id="classSelect">
+            <option value="class1">class1</option>
+            <option value="class2">class2</option>
+            <option value="class3">class3</option>
+          </select>
+        </div>
+
         <div class="field">
           <label for="dateInput">日付</label>
           <input type="date" id="dateInput" />
         </div>
 
         <div class="field">
-          <label for="slotSelect">回</label>
+          <label for="slotSelect">時限</label>
           <select id="slotSelect">
-            <option value="1">1回目</option>
-            <option value="2">2回目</option>
-            <option value="3">3回目</option>
+            <option value="1">1限</option>
+            <option value="2">2限</option>
+            <option value="3">3限</option>
           </select>
         </div>
 
-        <div class="field buttons">
+        <div class="buttons">
           <button id="saveBtn" class="btn primary">SAVE</button>
           <button id="todayBtn" class="btn today">今日</button>
-          <!-- 追加 -->
-  <button id="prevDayBtn" class="btn secondary">前日</button>
-  <button id="prevWeekBtn" class="btn secondary">前週</button>
-  <button id="prevMonthBtn" class="btn secondary">前月</button>
+          <button id="prevDayBtn" class="btn secondary">前日</button>
+          <button id="prevWeekBtn" class="btn secondary">前週</button>
+          <button id="prevMonthBtn" class="btn secondary">前月</button>
+          <button id="resetMonthBtn" class="btn danger">月データ初期化</button>
+          <button id="resetYearBtn" class="btn danger">年データ初期化</button>
           <button id="initStudentsBtn" class="btn danger">名簿初期化</button>
 
           <label class="btn secondary file-btn">
             CSV読込
-            <input type="file" id="csvFileInput" accept=".csv,text/csv" hidden />
+            <input type="file" id="csvFileInput" accept=".csv" hidden />
           </label>
         </div>
       </div>
 
       <div class="status-grid">
         <div class="status-card">
-          <div class="status-title">今回の不在人数</div>
+          <div class="status-title">現在の時限の不在人数</div>
           <div id="absentCount" class="status-value">0</div>
         </div>
 
         <div class="status-card">
           <div class="status-title">保存状態</div>
-          <div id="saveState" class="status-value small">未保存</div>
+          <div id="saveState" class="status-value small">---</div>
         </div>
 
         <div class="status-card">
-          <div class="status-title">1回目</div>
+          <div class="status-title">1限</div>
           <div id="slot1State" class="status-value small">---</div>
         </div>
 
         <div class="status-card">
-          <div class="status-title">2回目</div>
+          <div class="status-title">2限</div>
           <div id="slot2State" class="status-value small">---</div>
         </div>
 
         <div class="status-card">
-          <div class="status-title">3回目</div>
+          <div class="status-title">3限</div>
           <div id="slot3State" class="status-value small">---</div>
         </div>
       </div>
     </section>
 
+    <!-- 生徒一覧 -->
     <section class="panel">
-      <h2>生徒一覧</h2>
       <div id="studentCount" class="student-count">登録人数：0人</div>
-      <p class="note">
-        不在ボタンを押すたびに、出席 / 不在 が切り替わります。最後に SAVE で保存します。
-        集計は「指定日」「指定日を含む週」「指定日を含む月」を表示します。
-      </p>
+      <p class="note">出席 / 不在 を切り替えた後、SAVEで保存します。</p>
 
       <div class="grid-header">
-        <div>番号</div>
-        <div>名前</div>
+        <div>番</div>
+        <div>氏名</div>
         <div>状態</div>
         <div>日</div>
         <div>週</div>
