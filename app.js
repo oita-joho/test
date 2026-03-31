@@ -715,7 +715,19 @@ function parseMultiClassCsv(text) {
   }
 
   for (let i = startIndex; i < lines.length; i++) {
-    const cols = splitCsvLine(lines[i]);
+    for (let i = startIndex; i < lines.length; i++) {
+  let cols = splitCsvLine(lines[i]);
+
+  // ★ここ追加（超重要）
+  if (cols.length === 1 && cols[0].includes(",")) {
+    cols = cols[0].split(",");
+  }
+
+  if (cols.length < 3) continue;
+
+  const classRaw = String(cols[0] ?? "").replace(/"/g, "").trim();
+  const displayNo = String(cols[1] ?? "").replace(/"/g, "").trim();
+  const name = String(cols[2] ?? "").replace(/"/g, "").trim();
     if (cols.length < 3) continue;
 
     const classRaw = String(cols[0] ?? "").replace(/"/g, "").trim();
