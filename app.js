@@ -16,7 +16,8 @@ import {
   updateDoc,
   onSnapshot,
   serverTimestamp,
-  deleteDoc
+  deleteDoc,
+  increment
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 // ====================
@@ -62,10 +63,10 @@ let draftAttendance = {
 // 指名中の1人
 let currentNomination = null;
 
-// 月累計
+// 月累計（Firestoreから取得）
 let monthlyNominationCounts = {};
 
-// 当日この画面で「決定」済みの生徒
+// 当日・当該時限の決定済み（Firestoreから取得）
 let confirmedNominationIds = new Set();
 
 // ====================
@@ -160,6 +161,8 @@ function init() {
       showLoggedIn(user.email || "");
       await loadStudents();
       watchAttendance();
+      await loadMonthlyNominationCounts();
+      await loadConfirmedNominations();
     } catch (err) {
       console.error(err);
       alert("初期読込に失敗しました。");
@@ -190,6 +193,8 @@ function bindEvents() {
     try {
       await loadStudents();
       watchAttendance();
+      await loadMonthlyNominationCounts();
+      await loadConfirmedNominations();
       updateSaveState("クラス切替");
     } catch (err) {
       console.error(err);
@@ -206,6 +211,8 @@ function bindEvents() {
     try {
       await loadStudents();
       watchAttendance();
+      await loadMonthlyNominationCounts();
+      await loadConfirmedNominations();
     } catch (err) {
       console.error(err);
       alert("クラス切替に失敗しました。");
@@ -221,72 +228,78 @@ function bindEvents() {
     try {
       await loadStudents();
       watchAttendance();
-      loadNominateView();
+      await loadMonthlyNominationCounts();
+      await loadConfirmedNominations();
+      await loadNominateView();
     } catch (err) {
       console.error(err);
       alert("クラス切替に失敗しました。");
     }
   });
 
-  dateInput?.addEventListener("change", () => {
+  dateInput?.addEventListener("change", async () => {
     if (settingsDateInput) settingsDateInput.value = dateInput.value;
     if (nominateDateInput) nominateDateInput.value = dateInput.value;
-    confirmedNominationIds.clear();
     currentNomination = null;
     watchAttendance();
+    await loadMonthlyNominationCounts();
+    await loadConfirmedNominations();
     renderCurrentNominee();
     renderNominateGrid();
   });
 
-  settingsDateInput?.addEventListener("change", () => {
+  settingsDateInput?.addEventListener("change", async () => {
     if (dateInput) dateInput.value = settingsDateInput.value;
     if (nominateDateInput) nominateDateInput.value = settingsDateInput.value;
-    confirmedNominationIds.clear();
     currentNomination = null;
     watchAttendance();
+    await loadMonthlyNominationCounts();
+    await loadConfirmedNominations();
     renderCurrentNominee();
     renderNominateGrid();
   });
 
-  nominateDateInput?.addEventListener("change", () => {
+  nominateDateInput?.addEventListener("change", async () => {
     if (dateInput) dateInput.value = nominateDateInput.value;
     if (settingsDateInput) settingsDateInput.value = nominateDateInput.value;
-    confirmedNominationIds.clear();
     currentNomination = null;
     watchAttendance();
+    await loadMonthlyNominationCounts();
+    await loadConfirmedNominations();
     renderCurrentNominee();
     renderNominateGrid();
   });
 
   slotSelect?.addEventListener("change", async () => {
     if (nominateSlotSelect) nominateSlotSelect.value = slotSelect.value;
-    confirmedNominationIds.clear();
     currentNomination = null;
     await renderStudentGrid();
     updateAbsentCount();
     updateSaveState("読み込み済み");
+    await loadConfirmedNominations();
     renderCurrentNominee();
     renderNominateGrid();
   });
 
-  nominateSlotSelect?.addEventListener("change", () => {
+  nominateSlotSelect?.addEventListener("change", async () => {
     if (slotSelect) slotSelect.value = nominateSlotSelect.value;
-    confirmedNominationIds.clear();
     currentNomination = null;
+    await loadConfirmedNominations();
     renderCurrentNominee();
     renderNominateGrid();
   });
 
   saveBtn?.addEventListener("click", saveAttendance);
 
-  todayBtn?.addEventListener("click", () => {
+  todayBtn?.addEventListener("click", async () => {
     const t = todayStr();
     if (dateInput) dateInput.value = t;
     if (settingsDateInput) settingsDateInput.value = t;
     if (nominateDateInput) nominateDateInput.value = t;
-    confirmedNominationIds.clear();
     currentNomination = null;
     watchAttendance();
+    await loadMonthlyNominationCounts();
+    await loadConfirmedNominations();
     renderCurrentNominee();
     renderNominateGrid();
   });
@@ -399,6 +412,7 @@ function clearAttendanceState() {
   students = [];
   currentNomination = null;
   confirmedNominationIds.clear();
+  monthlyNominationCounts = {};
 
   if (studentGrid) studentGrid.innerHTML = "";
   if (nominateStudentGrid) nominateStudentGrid.innerHTML = "";
@@ -772,13 +786,96 @@ function updateSaveState(text) {
 }
 
 // ====================
+// 指名回数・決定状態 Firestore
+// ====================
+function getMonthKey(dateStr) {
+  return String(dateStr || "").slice(0, 7);
+}
+
+function getNominationDateStr() {
+  return dateInput?.value || nominateDateInput?.value || todayStr();
+}
+
+function getNominationSlotValue() {
+  return nominateSlotSelect?.value || slotSelect?.value || "1";
+}
+
+function nominationCountRef(studentId, dateStr) {
+  const monthKey = getMonthKey(dateStr || getNominationDateStr());
+  return doc(
+    db,
+    "classes",
+    CLASS_ID,
+    "nominationCounts",
+    monthKey,
+    "students",
+    String(studentId)
+  );
+}
+
+function confirmedRef(dateStr, slotValue, studentId) {
+  return doc(
+    db,
+    "classes",
+    CLASS_ID,
+    "nominationConfirmed",
+    String(dateStr),
+    "slots",
+    String(slotValue),
+    "students",
+    String(studentId)
+  );
+}
+
+async function loadMonthlyNominationCounts() {
+  const monthKey = getMonthKey(getNominationDateStr());
+  monthlyNominationCounts = {};
+
+  if (!monthKey) return;
+
+  const snap = await getDocs(
+    collection(db, "classes", CLASS_ID, "nominationCounts", monthKey, "students")
+  );
+
+  snap.forEach((d) => {
+    const data = d.data();
+    monthlyNominationCounts[String(d.id)] = Number(data.count || 0);
+  });
+
+  renderNominateGrid();
+  renderCurrentNominee();
+}
+
+async function loadConfirmedNominations() {
+  confirmedNominationIds = new Set();
+
+  const dateStr = getNominationDateStr();
+  const slotValue = getNominationSlotValue();
+
+  if (!dateStr || !slotValue) return;
+
+  const snap = await getDocs(
+    collection(db, "classes", CLASS_ID, "nominationConfirmed", dateStr, "slots", String(slotValue), "students")
+  );
+
+  snap.forEach((d) => {
+    confirmedNominationIds.add(Number(d.id));
+  });
+
+  renderNominateGrid();
+  renderCurrentNominee();
+}
+
+// ====================
 // 指名
 // ====================
-function loadNominateView() {
+async function loadNominateView() {
   if (nominateClassSelect) nominateClassSelect.value = CLASS_ID;
   if (nominateDateInput && dateInput) nominateDateInput.value = dateInput.value;
   if (nominateSlotSelect && slotSelect) nominateSlotSelect.value = slotSelect.value;
 
+  await loadMonthlyNominationCounts();
+  await loadConfirmedNominations();
   renderNominateGrid();
   renderCurrentNominee();
 }
@@ -860,19 +957,57 @@ function forceNominateStudent(studentId) {
   renderCurrentNominee();
 }
 
-function confirmNomination() {
+async function confirmNomination() {
   if (!currentNomination) {
     alert("先に指名してください。");
     return;
   }
 
   const id = Number(currentNomination.id);
+  const dateStr = getNominationDateStr();
+  const slotValue = getNominationSlotValue();
 
-  monthlyNominationCounts[String(id)] = (monthlyNominationCounts[String(id)] || 0) + 1;
-  confirmedNominationIds.add(id);
+  try {
+    const alreadyConfirmed = confirmedNominationIds.has(id);
 
-  renderCurrentNominee();
-  renderNominateGrid();
+    if (!alreadyConfirmed) {
+      await setDoc(
+        nominationCountRef(id, dateStr),
+        {
+          id,
+          displayNo: currentNomination.displayNo || String(id),
+          name: currentNomination.name || "",
+          count: increment(1),
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      );
+    }
+
+    await setDoc(
+      confirmedRef(dateStr, slotValue, id),
+      {
+        id,
+        displayNo: currentNomination.displayNo || String(id),
+        name: currentNomination.name || "",
+        date: dateStr,
+        slot: String(slotValue),
+        confirmedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    if (!alreadyConfirmed) {
+      monthlyNominationCounts[String(id)] = (monthlyNominationCounts[String(id)] || 0) + 1;
+    }
+    confirmedNominationIds.add(id);
+
+    renderCurrentNominee();
+    renderNominateGrid();
+  } catch (err) {
+    console.error(err);
+    alert("決定回数の保存に失敗しました。");
+  }
 }
 
 function clearNomination() {
@@ -883,7 +1018,7 @@ function clearNomination() {
 // ====================
 // 日付移動
 // ====================
-function moveDateByDays(days) {
+async function moveDateByDays(days) {
   if (!dateInput?.value) return;
   const d = new Date(dateInput.value);
   d.setDate(d.getDate() + days);
@@ -893,14 +1028,15 @@ function moveDateByDays(days) {
   if (settingsDateInput) settingsDateInput.value = v;
   if (nominateDateInput) nominateDateInput.value = v;
 
-  confirmedNominationIds.clear();
   currentNomination = null;
   watchAttendance();
+  await loadMonthlyNominationCounts();
+  await loadConfirmedNominations();
   renderCurrentNominee();
   renderNominateGrid();
 }
 
-function moveDateByMonths(months) {
+async function moveDateByMonths(months) {
   if (!dateInput?.value) return;
   const d = new Date(dateInput.value);
   d.setMonth(d.getMonth() + months);
@@ -910,9 +1046,10 @@ function moveDateByMonths(months) {
   if (settingsDateInput) settingsDateInput.value = v;
   if (nominateDateInput) nominateDateInput.value = v;
 
-  confirmedNominationIds.clear();
   currentNomination = null;
   watchAttendance();
+  await loadMonthlyNominationCounts();
+  await loadConfirmedNominations();
   renderCurrentNominee();
   renderNominateGrid();
 }
