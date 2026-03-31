@@ -312,3 +312,17 @@ body {
     font-size: 13px;
   }
 }
+/* ===== 指名画面 ===== */
+#nominateStudentGrid .student-card {
+  grid-template-columns: 50px 1fr 100px;
+}
+
+#nominateStudentGrid .btn {
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  #nominateStudentGrid .student-card {
+    grid-template-columns: 36px 1fr 80px;
+  }
+}
