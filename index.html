@@ -179,38 +179,33 @@
       </section>
 
       <!-- 設定 -->
-      <section class="panel" id="settingsPanel" style="display:none;">
-        <h2 class="section-title">設定</h2>
+<section class="panel" id="settingsPanel" style="display:none;">
+  <h2 class="section-title">設定（年度初めのみ）</h2>
 
-        <div class="toolbar">
-          <div class="field">
-            <label for="settingsClassSelect">クラス</label>
-            <select id="settingsClassSelect">
-              <option value="class1">class1</option>
-              <option value="class2">class2</option>
-              <option value="class3">class3</option>
-            </select>
-          </div>
+  <div class="toolbar">
+    <div class="field">
+      <label for="settingsClassSelect">クラス</label>
+      <select id="settingsClassSelect">
+        <option value="class1">class1</option>
+        <option value="class2">class2</option>
+        <option value="class3">class3</option>
+      </select>
+    </div>
 
-          <div class="field">
-            <label for="settingsDateInput">基準日</label>
-            <input type="date" id="settingsDateInput" />
-          </div>
+    <div class="buttons">
+      <label for="csvFileInput" class="btn primary file-btn">名簿CSV登録</label>
+      <input type="file" id="csvFileInput" accept=".csv" style="display:none;" />
+      <button id="exportCsvBtn" class="btn secondary">名簿CSV出力</button>
+    </div>
+  </div>
 
-          <div class="buttons">
-            <button id="initStudentsBtn" class="btn primary">名簿初期化</button>
-            <label for="csvFileInput" class="btn secondary file-btn">CSV登録</label>
-            <input type="file" id="csvFileInput" accept=".csv" style="display:none;" />
-            <button id="exportCsvBtn" class="btn secondary">CSV出力</button>
-            <button id="resetMonthBtn" class="btn danger">月データ初期化</button>
-            <button id="resetYearBtn" class="btn danger">年データ初期化</button>
-          </div>
-        </div>
-
-        <p class="note">
-          設定は最初だけ使います。通常運用は「出欠」から始めます。
-        </p>
-      </section>
+  <p class="note">
+    この設定は年度初めの名簿登録時のみ使用します。通常は「出欠」から始めます。
+  </p>
+  <p class="note">
+    CSV登録を行うと、そのクラスの名簿が上書きされます。
+  </p>
+</section>
 
     </div>
   </div>
