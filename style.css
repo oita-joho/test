@@ -326,3 +326,17 @@ body {
     grid-template-columns: 36px 1fr 80px;
   }
 }
+.row-confirmed {
+  background: #e7f6ea;
+  border-color: #2f6b3c;
+}
+
+.row-confirmed .student-id-box {
+  background: #2f6b3c;
+  color: #fff;
+  border-color: #2f6b3c;
+}
+
+.row-confirmed .force-nominate-btn {
+  background: #2f6b3c;
+}
