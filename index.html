@@ -1,206 +1,139 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>出欠管理</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>出欠・指名システム</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-  <div class="app">
-    <header class="topbar">
-      <h1>出欠管理</h1>
-      <div id="authStatus" class="auth-status">未ログイン</div>
-    </header>
+<div class="app">
 
-    <!-- ログイン -->
-    <section class="panel" id="loginPanel">
-      <div class="buttons">
-        <button id="loginBtn" class="btn primary">先生ログイン</button>
-        <button id="logoutBtn" class="btn secondary" style="display:none;">ログアウト</button>
-      </div>
-      <p id="loginMessage" class="note">先生ログインが必要です。</p>
-    </section>
+  <div class="topbar">
+    <h1>出欠・指名システム</h1>
+    <div id="authStatus" class="auth-status">未ログイン</div>
+  </div>
 
-    <!-- ログイン後 -->
-    <div id="appBody" style="display:none;">
+  <div class="panel">
+    <button id="loginBtn" class="btn primary">先生ログイン</button>
+    <button id="logoutBtn" class="btn secondary" style="display:none;">ログアウト</button>
+    <div id="loginMessage"></div>
+  </div>
 
-      <!-- モード切替 -->
-      <section class="panel">
-        <div class="mode-buttons">
-          <button id="modeAttendanceBtn" class="btn primary">出欠</button>
-          <button id="modeNominateBtn" class="btn secondary">指名</button>
-          <button id="modeSettingsBtn" class="btn secondary">年度設定</button>
+  <div id="appBody" style="display:none;">
+
+    <!-- モード -->
+    <div class="panel mode-buttons">
+      <button id="modeAttendanceBtn" class="btn primary">出欠</button>
+      <button id="modeNominateBtn" class="btn secondary">指名</button>
+      <button id="modeSettingsBtn" class="btn secondary">設定</button>
+    </div>
+
+    <!-- 出欠 -->
+    <div id="attendancePanel" class="panel">
+      <div class="toolbar">
+
+        <div class="field">
+          <label>クラス</label>
+          <select id="classSelect">
+            <option value="class1">1組</option>
+            <option value="class2">2組</option>
+            <option value="class3">3組</option>
+            <option value="class4">4組</option>
+            <option value="class5">5組</option>
+            <option value="class6">6組</option>
+            <option value="class7">7組</option>
+            <option value="class8">8組</option>
+          </select>
         </div>
-      </section>
 
-      <!-- 出欠を閉じた時に出すバー -->
-      <section class="panel" id="attendanceToggleBar" style="display:none;">
+        <div class="field">
+          <label>日付</label>
+          <input type="date" id="dateInput">
+        </div>
+
         <div class="buttons">
-          <button id="openAttendanceBtn" class="btn primary">出欠入力を開く</button>
+          <button id="todayBtn" class="btn today">今日</button>
+          <button id="prevDayBtn" class="btn secondary">前日</button>
+          <button id="prevWeekBtn" class="btn secondary">前週</button>
+          <button id="prevMonthBtn" class="btn secondary">前月</button>
+          <button id="saveBtn" class="btn primary">SAVE</button>
         </div>
-      </section>
+      </div>
 
-      <!-- 出欠パネル -->
-      <section class="panel" id="attendancePanel">
-        <h2 class="section-title">出欠入力</h2>
-
-        <div class="toolbar">
-          <div class="field">
-            <label for="classSelect">クラス</label>
-            <select id="classSelect">
-  <option value="class1">class1</option>
-  <option value="class2">class2</option>
-  <option value="class3">class3</option>
-  <option value="class4">class4</option>
-  <option value="class5">class5</option>
-  <option value="class6">class6</option>
-  <option value="class7">class7</option>
-  <option value="class8">class8</option>
-</select>
-          </div>
-
-          <div class="field">
-            <label for="dateInput">日付</label>
-            <input type="date" id="dateInput" />
-          </div>
-
- 
-
-          <div class="buttons">
-            <button id="todayBtn" class="btn today">今日</button>
-            <button id="prevDayBtn" class="btn secondary">前日</button>
-            <button id="prevWeekBtn" class="btn secondary">前週</button>
-            <button id="prevMonthBtn" class="btn secondary">前月</button>
-            <button id="saveBtn" class="btn primary">SAVE</button>
-          </div>
+      <div class="status-grid">
+        <div class="status-card">
+          <div class="status-title">欠席人数</div>
+          <div id="absentCount" class="status-value">0</div>
         </div>
-
-        <div class="status-grid">
-          <div class="status-card">
-            <div class="status-title">欠席人数</div>
-            <div id="absentCount" class="status-value">0</div>
-          </div>
-
-          <div class="status-card">
-            <div class="status-title">保存状態</div>
-            <div id="saveState" class="status-value small">---</div>
-          </div>
-
-     
+        <div class="status-card">
+          <div class="status-title">保存状態</div>
+          <div id="saveState" class="status-value small">---</div>
         </div>
-      </section>
-<!-- 指名パネル -->
-<section class="panel" id="nominatePanel" style="display:none;">
-  <h2 class="section-title">指名</h2>
-
-  <div class="toolbar">
-    <div class="field">
-      <label for="nominateClassSelect">クラス</label>
-      <select id="nominateClassSelect">
-
-  <option value="class1">class1</option>
-  <option value="class2">class2</option>
-  <option value="class3">class3</option>
-  <option value="class4">class4</option>
-  <option value="class5">class5</option>
-  <option value="class6">class6</option>
-  <option value="class7">class7</option>
-  <option value="class8">class8</option>
-</select>
+      </div>
     </div>
 
-    <div class="field">
-      <label for="nominateDateInput">日付</label>
-      <input type="date" id="nominateDateInput" />
+    <!-- 生徒一覧 -->
+    <div id="studentListPanel" class="panel">
+      <div id="studentCount">登録人数：0人</div>
+      <div id="studentGrid" class="student-grid"></div>
     </div>
 
-  
+    <!-- 指名 -->
+    <div id="nominatePanel" class="panel" style="display:none;">
+      <h2>指名</h2>
 
- 
-    <div class="buttons">
-  <button id="randomNominateBtn" class="btn primary">ランダム指名</button>
-  <button id="confirmNominateBtn" class="btn today">決定</button>
-  <button id="clearNominateBtn" class="btn secondary">指名解除</button>
-      <button id="exportNominateCsvBtn" class="btn secondary">CSV出力</button>
+      <div class="toolbar">
+        <select id="nominateClassSelect">
+          <option value="class1">1組</option>
+          <option value="class2">2組</option>
+          <option value="class3">3組</option>
+          <option value="class4">4組</option>
+          <option value="class5">5組</option>
+          <option value="class6">6組</option>
+          <option value="class7">7組</option>
+          <option value="class8">8組</option>
+        </select>
+
+        <input type="date" id="nominateDateInput">
+
+        <div class="buttons">
+          <button id="randomNominateBtn" class="btn primary">ランダム指名</button>
+          <button id="confirmNominateBtn" class="btn today">決定</button>
+          <button id="clearNominateBtn" class="btn secondary">指名解除</button>
+          <button id="exportNominateCsvBtn" class="btn secondary">CSV出力</button>
+        </div>
+      </div>
+
+      <div class="status-grid">
+        <div class="status-card">
+          <div class="status-title">今回の指名</div>
+          <div id="currentNomineeName" class="status-value">---</div>
+        </div>
+        <div class="status-card">
+          <div class="status-title">番号</div>
+          <div id="currentNomineeNo" class="status-value">---</div>
+        </div>
+        <div class="status-card">
+          <div class="status-title">状態</div>
+          <div id="nominateState" class="status-value small">未指名</div>
+        </div>
+      </div>
+
+      <div id="nominateStudentGrid" class="student-grid"></div>
+    </div>
+
+    <!-- 設定 -->
+    <div id="settingsPanel" class="panel" style="display:none;">
+      <h2>名簿登録</h2>
+      <input type="file" id="csvFileInput">
+      <button id="exportCsvBtn" class="btn secondary">CSV出力</button>
+    </div>
+
+  </div>
 </div>
-  </div>
 
-  <div class="status-grid" style="margin-top:16px;">
-    <div class="status-card">
-      <div class="status-title">今回の指名</div>
-      <div id="currentNomineeName" class="status-value small">---</div>
-    </div>
-    <div class="status-card">
-      <div class="status-title">番号</div>
-      <div id="currentNomineeNo" class="status-value">---</div>
-    </div>
-    <div class="status-card">
-      <div class="status-title">状態</div>
-      <div id="nominateState" class="status-value small">未指名</div>
-    </div>
-  </div>
-
-  <p class="note">
-    欠席者はランダム指名の対象外です。月累計は「集計」を押した時だけ更新します。
-  </p>
-
-  <div id="nominateStudentGrid" class="student-grid"></div>
-</section>
-      <!-- 生徒一覧 -->
-      <section class="panel" id="studentListPanel">
-        <div id="studentCount" class="student-count">登録人数：0人</div>
-        <p class="note">名前は直接編集できます。欠席ボタンで出欠を切り替えます。</p>
-
-        <div class="grid-header">
-          <div>番号</div>
-          <div>氏名</div>
-          <div>出欠</div>
-          <div>日</div>
-          <div>週</div>
-          <div>月</div>
-        </div>
-
-        <div id="studentGrid" class="student-grid"></div>
-      </section>
-
-      <!-- 設定 -->
-<section class="panel" id="settingsPanel" style="display:none;">
-  <h2 class="section-title">設定（年度初めのみ）</h2>
-
-  <div class="toolbar">
-    <div class="field">
-      <label for="settingsClassSelect">クラス</label>
-      <select id="settingsClassSelect">
-        <option value="class1">class1</option>
-        <option value="class2">class2</option>
-        <option value="class3">class3</option>
-        <option value="class4">class4</option>
-        <option value="class5">class5</option>
-        <option value="class6">class6</option>
-        <option value="class7">class7</option>
-        <option value="class8">class8</option>
-      </select>
-    </div>
-
-    <div class="buttons">
-      <label for="csvFileInput" class="btn primary file-btn">名簿CSV登録</label>
-      <input type="file" id="csvFileInput" accept=".csv" style="display:none;" />
-      <button id="exportCsvBtn" class="btn secondary">名簿CSV出力</button>
-    </div>
-  </div>
-
-  <p class="note">
-    この設定は年度初めの名簿登録時のみ使用します。通常は「出欠」から始めます。
-  </p>
-  <p class="note">
-    CSV登録を行うと、そのクラスの名簿が上書きされます。
-  </p>
-</section>
-
-    </div>
-  </div>
-
-  <script type="module" src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
