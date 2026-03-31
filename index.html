@@ -29,6 +29,7 @@
       <section class="panel">
         <div class="mode-buttons">
           <button id="modeAttendanceBtn" class="btn primary">出欠</button>
+          <button id="modeNominateBtn" class="btn secondary">指名</button>
           <button id="modeSettingsBtn" class="btn secondary">設定</button>
         </div>
       </section>
@@ -104,7 +105,62 @@
           </div>
         </div>
       </section>
+<!-- 指名パネル -->
+<section class="panel" id="nominatePanel" style="display:none;">
+  <h2 class="section-title">指名</h2>
 
+  <div class="toolbar">
+    <div class="field">
+      <label for="nominateClassSelect">クラス</label>
+      <select id="nominateClassSelect">
+        <option value="class1">class1</option>
+        <option value="class2">class2</option>
+        <option value="class3">class3</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="nominateDateInput">日付</label>
+      <input type="date" id="nominateDateInput" />
+    </div>
+
+    <div class="field">
+      <label for="nominateSlotSelect">時限</label>
+      <select id="nominateSlotSelect">
+        <option value="1">1時間目</option>
+        <option value="2">2時間目</option>
+        <option value="3">3時間目</option>
+      </select>
+    </div>
+
+    <div class="buttons">
+      <button id="randomNominateBtn" class="btn primary">ランダム指名</button>
+      <button id="clearNominateBtn" class="btn secondary">指名解除</button>
+      <button id="aggregateNominateBtn" class="btn today">集計</button>
+    </div>
+  </div>
+
+  <div class="status-grid" style="margin-top:16px;">
+    <div class="status-card">
+      <div class="status-title">今回の指名</div>
+      <div id="currentNomineeName" class="status-value small">---</div>
+    </div>
+    <div class="status-card">
+      <div class="status-title">番号</div>
+      <div id="currentNomineeNo" class="status-value">---</div>
+    </div>
+    <div class="status-card">
+      <div class="status-title">状態</div>
+      <div id="nominateState" class="status-value small">未指名</div>
+    </div>
+  </div>
+
+  <p class="note">
+    欠席者はランダム指名の対象外です。月累計は「集計」を押した時だけ更新します。
+  </p>
+
+  <div id="nominateStudentGrid" class="student-grid"></div>
+</section>
       <!-- 生徒一覧 -->
       <section class="panel" id="studentListPanel">
         <div id="studentCount" class="student-count">登録人数：0人</div>
