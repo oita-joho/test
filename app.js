@@ -283,9 +283,7 @@ function bindEvents() {
     const name = input.value.trim();
 
     try {
-      await updateDoc(doc(db, "classes", CLASS_ID, "students", id), {
-        name
-      });
+      await updateDoc(doc(db, "classes", CLASS_ID, "students", id), { name });
       await loadStudents();
     } catch (err) {
       console.error(err);
@@ -411,31 +409,32 @@ async function importStudentsFromCsvFile(e) {
   if (!file) return;
 
   try {
-    const text = await file.text();
+    const text = await readCsvFile(file);
     const studentsFromCsv = parseSingleClassCsv(text);
 
+    console.log("CSV text:", text);
+    console.log("parsed students:", studentsFromCsv);
+
     if (!studentsFromCsv.length) {
-      alert("CSVから番号・氏名を読み取れませんでした。");
+      alert("CSVから番号・氏名を読み取れませんでした。CSVの1～3行目を確認してください。");
       return;
     }
 
-    const ok = confirm(`クラス「${CLASS_ID}」の名簿を登録します。既存名簿は置き換えられます。よろしいですか？`);
+    const ok = confirm(
+      `クラス「${CLASS_ID}」に ${studentsFromCsv.length} 人登録します。既存名簿は置き換えられます。よろしいですか？`
+    );
     if (!ok) return;
 
-    // 既存名簿をすべて削除
     const oldSnap = await getDocs(collection(db, "classes", CLASS_ID, "students"));
     for (const d of oldSnap.docs) {
       await deleteDoc(doc(db, "classes", CLASS_ID, "students", d.id));
     }
 
-    // CSVの内容だけ登録
-    for (let i = 0; i < studentsFromCsv.length; i++) {
-      const row = studentsFromCsv[i];
-
-      await setDoc(doc(db, "classes", CLASS_ID, "students", String(i + 1)), {
-        id: i + 1,
-        displayNo: row?.displayNo || String(i + 1),
-        name: row?.name || ""
+    for (const row of studentsFromCsv) {
+      await setDoc(doc(db, "classes", CLASS_ID, "students", String(row.id)), {
+        id: row.id,
+        displayNo: row.displayNo,
+        name: row.name
       });
     }
 
@@ -447,6 +446,17 @@ async function importStudentsFromCsvFile(e) {
   } finally {
     if (csvFileInput) csvFileInput.value = "";
   }
+}
+
+async function readCsvFile(file) {
+  const buffer = await file.arrayBuffer();
+
+  let text = new TextDecoder("utf-8").decode(buffer);
+  if (text.includes("�")) {
+    text = new TextDecoder("shift-jis").decode(buffer);
+  }
+
+  return text;
 }
 
 async function loadStudents() {
@@ -472,41 +482,65 @@ async function loadStudents() {
 }
 
 function parseSingleClassCsv(text) {
-  const rows = parseCsv(text)
-    .map((row) => row.map((v) => String(v ?? "").trim()))
-    .filter((row) => row.some((v) => v !== ""));
+  const rows = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      if (line.includes("\t")) {
+        return line.split("\t").map((v) => String(v ?? "").trim());
+      }
+      return line.split(",").map((v) => String(v ?? "").trim());
+    });
 
   if (!rows.length) return [];
 
-  const header = rows[0].map((v) => normalizeHeader(v));
-  const noIndex = findHeaderIndex(header, ["番号", "no", "num", "displayno"]);
-  const nameIndex = findHeaderIndex(header, ["氏名", "名前", "name"]);
+  let startIndex = 0;
+  const firstRow = rows[0].map((v) => normalizeHeader(v));
 
-  const body = (noIndex !== -1 || nameIndex !== -1) ? rows.slice(1) : rows;
+  const hasHeader =
+    firstRow.includes("番号") ||
+    firstRow.includes("氏名") ||
+    firstRow.includes("名前") ||
+    firstRow.includes("name") ||
+    firstRow.includes("no");
 
-  return body
-    .map((row, idx) => {
-      let displayNo = "";
-      let name = "";
+  let noIndex = 0;
+  let nameIndex = 1;
 
-      if (noIndex !== -1) {
-        displayNo = row[noIndex] || "";
-      } else {
-        displayNo = row[0] || String(idx + 1);
-      }
+  if (hasHeader) {
+    startIndex = 1;
+    noIndex = firstRow.findIndex((v) => ["番号", "no", "num", "displayno"].includes(v));
+    nameIndex = firstRow.findIndex((v) => ["氏名", "名前", "name"].includes(v));
 
-      if (nameIndex !== -1) {
-        name = row[nameIndex] || "";
-      } else {
-        name = row[1] || "";
-      }
+    if (noIndex === -1) noIndex = 0;
+    if (nameIndex === -1) nameIndex = 1;
+  }
 
-      return {
-        displayNo: displayNo || String(idx + 1),
-        name: name || ""
-      };
-    })
-    .filter((row) => row.displayNo || row.name);
+  const result = [];
+
+  for (let i = startIndex; i < rows.length; i++) {
+    const row = rows[i];
+    const rawNo = String(row[noIndex] ?? "").trim();
+    const rawName = String(row[nameIndex] ?? "").trim();
+
+    if (!rawNo) continue;
+
+    const id = Number(rawNo);
+    if (Number.isNaN(id)) continue;
+
+    if (!rawName) continue;
+
+    result.push({
+      id,
+      displayNo: rawNo,
+      name: rawName
+    });
+  }
+
+  return result;
 }
 
 function exportStudentsCsv() {
@@ -860,10 +894,6 @@ function normalizeHeader(value) {
     .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) =>
       String.fromCharCode(s.charCodeAt(0) - 0xFEE0)
     );
-}
-
-function findHeaderIndex(headerRow, candidates) {
-  return headerRow.findIndex((h) => candidates.includes(h));
 }
 
 function parseCsv(text) {
